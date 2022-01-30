@@ -9,5 +9,5 @@ import (
 
 func main() {
 	c90.Parse(c90.NewLexer(os.Stdin))
-	fmt.Println(c90.AST)
+	fmt.Println(c90.AST.Describe())
 }

@@ -1,7 +1,53 @@
 %{
 package c90
 
-var AST interface{}
+import (
+	"fmt"
+)
+
+var AST Node
+
+func init() {
+	yyDebug = 1
+	yyErrorVerbose = true
+}
+
+type Node interface {
+	Describe() string
+}
+
+type ASTNode struct {
+	inner Node
+}
+
+func (t ASTNode) Describe() string {
+	return t.inner.Describe()
+}
+
+type ASTPanic struct {}
+
+func (t ASTPanic) Describe() string {
+	return "[panic]"
+}
+
+type ASTType struct {
+	typ string
+}
+
+func (t ASTType) Describe() string {
+	return t.typ
+}
+
+type ASTFunction struct {
+	typ *ASTType
+	name string
+	body Node
+}
+
+func (t ASTFunction) Describe() string {
+	return fmt.Sprintf("function (%s) -> %s", t.name, t.typ.Describe())
+}
+
 
 func Parse(yylex yyLexer) int {
 	return yyParse(yylex)
@@ -9,7 +55,9 @@ func Parse(yylex yyLexer) int {
 %}
 
 %union {
-  n interface{}
+  n Node
+  str string
+  typ *ASTType
 }
 
 %token IDENTIFIER CONSTANT STRING_LITERAL SIZEOF
@@ -174,7 +222,7 @@ declaration_specifiers
 	| storage_class_specifier declaration_specifiers
 	| type_specifier
 	| type_specifier declaration_specifiers
-	| type_qualifier
+	| type_qualifier { $$.typ = $1.typ }
 	| type_qualifier declaration_specifiers
 	;
 
@@ -200,7 +248,7 @@ type_specifier
 	: VOID
 	| CHAR
 	| SHORT
-	| INT
+	| INT { $$.typ = &ASTType{typ: "int"} }
 	| LONG
 	| FLOAT
 	| DOUBLE
@@ -276,7 +324,7 @@ declarator
 	;
 
 direct_declarator
-	: IDENTIFIER
+	: IDENTIFIER	{ /*abcd*/ $$.str = $1.str }
 	| '(' declarator ')'
 	| direct_declarator '[' constant_expression ']'
 	| direct_declarator '[' ']'
@@ -412,18 +460,18 @@ jump_statement
 	;
 
 translation_unit
-	: external_declaration
+	: external_declaration { AST = &ASTNode{inner: $1.n} }
 	| translation_unit external_declaration
 	;
 
 external_declaration
-	: function_definition
+	: function_definition { $$.n = $1.n }
 	| declaration
 	;
 
 function_definition
 	: declaration_specifiers declarator declaration_list compound_statement
-	| declaration_specifiers declarator compound_statement
+	| declaration_specifiers declarator compound_statement { $$.n = &ASTFunction{typ: $1.typ, name: $2.str, body: $3.n} }
 	| declarator declaration_list compound_statement
 	| declarator compound_statement
 	;

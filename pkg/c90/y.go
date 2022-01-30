@@ -7,16 +7,63 @@ import __yyfmt__ "fmt"
 
 //line pkg/c90/grammar.y:2
 
-var AST interface{}
+import (
+	"fmt"
+)
+
+var AST Node
+
+func init() {
+	yyDebug = 1
+	yyErrorVerbose = true
+}
+
+type Node interface {
+	Describe() string
+}
+
+type ASTNode struct {
+	inner Node
+}
+
+func (t ASTNode) Describe() string {
+	return t.inner.Describe()
+}
+
+type ASTPanic struct{}
+
+func (t ASTPanic) Describe() string {
+	return "[panic]"
+}
+
+type ASTType struct {
+	typ string
+}
+
+func (t ASTType) Describe() string {
+	return t.typ
+}
+
+type ASTFunction struct {
+	typ  *ASTType
+	name string
+	body Node
+}
+
+func (t ASTFunction) Describe() string {
+	return fmt.Sprintf("function (%s) -> %s", t.name, t.typ.Describe())
+}
 
 func Parse(yylex yyLexer) int {
 	return yyParse(yylex)
 }
 
-//line pkg/c90/grammar.y:11
+//line pkg/c90/grammar.y:57
 type yySymType struct {
 	yys int
-	n   interface{}
+	n   Node
+	str string
+	typ *ASTType
 }
 
 const IDENTIFIER = 57346
@@ -854,6 +901,42 @@ yydefault:
 	// dummy call; replaced with literal code
 	switch yynt {
 
+	case 81:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:226
+		{
+			yyVAL.typ = yyDollar[1].typ
+		}
+	case 95:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:252
+		{
+			yyVAL.typ = &ASTType{typ: "int"}
+		}
+	case 132:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:328
+		{ /*abcd*/
+			yyVAL.str = yyDollar[1].str
+		}
+	case 204:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:464
+		{
+			AST = &ASTNode{inner: yyDollar[1].n}
+		}
+	case 206:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:469
+		{
+			yyVAL.n = yyDollar[1].n
+		}
+	case 209:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:475
+		{
+			yyVAL.n = &ASTFunction{typ: yyDollar[1].typ, name: yyDollar[2].str, body: yyDollar[3].n}
+		}
 	}
 	goto yystack /* stack new state and value */
 }
