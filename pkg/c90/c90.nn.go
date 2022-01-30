@@ -8444,7 +8444,7 @@ OUTER0:
 		case 67:
 			{
 				count(yylex)
-				return int(124)
+				return int(123)
 			}
 		case 68:
 			{
