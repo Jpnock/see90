@@ -1,0 +1,7 @@
+/[ \t]/  { /* Skip blanks and tabs. */ }
+/[0-9]*/ { lval.n,_ = strconv.Atoi(yylex.Text()); return TOKEN_NUM }
+/\n/ { return TOKEN_NEWLINE }
+/./ { return int(yylex.Text()[0]) }
+//
+package firsttest
+import ("strconv")
