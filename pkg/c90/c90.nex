@@ -71,7 +71,7 @@
 /==/			{ count(yylex); return EQ_OP; }
 /!=/			{ count(yylex); return NE_OP; }
 /;/			    { count(yylex); return int(';'); }
-/{/	            { count(yylex); return int(124); }
+/{/	            { count(yylex); return int(123); }
 /}/	            { count(yylex); return int(125); }
 /,/			    { count(yylex); return int(','); }
 /:/			    { count(yylex); return int(':'); }
