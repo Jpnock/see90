@@ -8269,56 +8269,67 @@ OUTER0:
 		case 32:
 			{
 				count(yylex)
+				lval.str = yylex.Text()
 				return checkType()
 			}
 		case 33:
 			{
 				count(yylex)
+				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 34:
 			{
 				count(yylex)
+				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 35:
 			{
 				count(yylex)
+				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 36:
 			{
 				count(yylex)
+				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 37:
 			{
 				count(yylex)
+				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 38:
 			{
 				count(yylex)
+				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 39:
 			{
 				count(yylex)
+				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 40:
 			{
 				count(yylex)
+				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 41:
 			{
 				count(yylex)
+				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 42:
 			{
 				count(yylex)
+				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 43:

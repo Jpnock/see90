@@ -1,53 +1,12 @@
 %{
 package c90
 
-import (
-	"fmt"
-)
-
 var AST Node
 
 func init() {
 	yyDebug = 1
 	yyErrorVerbose = true
 }
-
-type Node interface {
-	Describe() string
-}
-
-type ASTNode struct {
-	inner Node
-}
-
-func (t ASTNode) Describe() string {
-	return t.inner.Describe()
-}
-
-type ASTPanic struct {}
-
-func (t ASTPanic) Describe() string {
-	return "[panic]"
-}
-
-type ASTType struct {
-	typ string
-}
-
-func (t ASTType) Describe() string {
-	return t.typ
-}
-
-type ASTFunction struct {
-	typ *ASTType
-	name string
-	body Node
-}
-
-func (t ASTFunction) Describe() string {
-	return fmt.Sprintf("function (%s) -> %s", t.name, t.typ.Describe())
-}
-
 
 func Parse(yylex yyLexer) int {
 	return yyParse(yylex)
@@ -214,26 +173,26 @@ constant_expression
 
 declaration
 	: declaration_specifiers ';'
-	| declaration_specifiers init_declarator_list ';'
+	| declaration_specifiers init_declarator_list ';' { $$.n = &ASTDecl{ident: $2.str, typ: $1.typ} } // Variable eclaration.
 	;
 
 declaration_specifiers
 	: storage_class_specifier
 	| storage_class_specifier declaration_specifiers
-	| type_specifier
+	| type_specifier { $$.typ = $1.typ }
 	| type_specifier declaration_specifiers
-	| type_qualifier { $$.typ = $1.typ }
+	| type_qualifier 
 	| type_qualifier declaration_specifiers
 	;
 
 init_declarator_list
-	: init_declarator
+	: init_declarator {$$.str = $1.str}
 	| init_declarator_list ',' init_declarator
 	;
 
 init_declarator
-	: declarator
-	| declarator '=' initializer
+	: declarator {$$.str = $1.str}
+	| declarator '=' initializer {$$.str = $1.str} // TODO: add initializer
 	;
 
 storage_class_specifier
@@ -247,13 +206,16 @@ storage_class_specifier
 type_specifier
 	: VOID
 	| CHAR
-	| SHORT
+	| SHORT { 
+		// https://stackoverflow.com/a/697531
+		$$.typ = &ASTType{typ: "short"}
+	  }
 	| INT { $$.typ = &ASTType{typ: "int"} }
-	| LONG
-	| FLOAT
-	| DOUBLE
-	| SIGNED
-	| UNSIGNED
+	| LONG { $$.typ = &ASTType{typ: "long"} }
+	| FLOAT { $$.typ = &ASTType{typ: "float"} }
+	| DOUBLE { $$.typ = &ASTType{typ: "double"} }
+	| SIGNED { $$.typ = &ASTType{typ: "signed"} }
+	| UNSIGNED { $$.typ = &ASTType{typ: "unsigned"} }
 	| struct_or_union_specifier
 	| enum_specifier
 	| TYPE_NAME
@@ -419,13 +381,17 @@ labeled_statement
 compound_statement
 	: '{' '}'
 	| '{' statement_list '}'
-	| '{' declaration_list '}'
+	| '{' declaration_list '}' { $$.n = $2.n }
 	| '{' declaration_list statement_list '}'
 	;
 
 declaration_list
-	: declaration
-	| declaration_list declaration
+	: declaration { $$.n = ASTDeclList{$1.n.(*ASTDecl)} }
+	| declaration_list declaration {
+		li := $1.n.(ASTDeclList)
+		li = append(li, $2.n.(*ASTDecl))
+		$$.n = li
+	  }
 	;
 
 statement_list
@@ -470,8 +436,8 @@ external_declaration
 	;
 
 function_definition
-	: declaration_specifiers declarator declaration_list compound_statement
+	: declaration_specifiers declarator declaration_list compound_statement { panic("Old K&R style function parsed (1)") }// Old K&R style C parameter declarations
 	| declaration_specifiers declarator compound_statement { $$.n = &ASTFunction{typ: $1.typ, name: $2.str, body: $3.n} }
-	| declarator declaration_list compound_statement
-	| declarator compound_statement
+	| declarator declaration_list compound_statement { panic("Old K&R style function parsed (2)") }
+	| declarator compound_statement { $$.n = &ASTFunction{typ: &ASTType{typ: "int"}, name: $1.str, body: $2.n} } // Function without a type
 	;
