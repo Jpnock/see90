@@ -7,10 +7,6 @@ import __yyfmt__ "fmt"
 
 //line pkg/c90/grammar.y:2
 
-import (
-	"fmt"
-)
-
 var AST Node
 
 func init() {
@@ -18,47 +14,11 @@ func init() {
 	yyErrorVerbose = true
 }
 
-type Node interface {
-	Describe() string
-}
-
-type ASTNode struct {
-	inner Node
-}
-
-func (t ASTNode) Describe() string {
-	return t.inner.Describe()
-}
-
-type ASTPanic struct{}
-
-func (t ASTPanic) Describe() string {
-	return "[panic]"
-}
-
-type ASTType struct {
-	typ string
-}
-
-func (t ASTType) Describe() string {
-	return t.typ
-}
-
-type ASTFunction struct {
-	typ  *ASTType
-	name string
-	body Node
-}
-
-func (t ASTFunction) Describe() string {
-	return fmt.Sprintf("function (%s) -> %s", t.name, t.typ.Describe())
-}
-
 func Parse(yylex yyLexer) int {
 	return yyParse(yylex)
 }
 
-//line pkg/c90/grammar.y:57
+//line pkg/c90/grammar.y:16
 type yySymType struct {
 	yys int
 	n   Node
@@ -901,41 +861,140 @@ yydefault:
 	// dummy call; replaced with literal code
 	switch yynt {
 
-	case 81:
+	case 76:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:176
+		{
+			yyVAL.n = &ASTDecl{ident: yyDollar[2].str, typ: yyDollar[1].typ}
+		}
+	case 79:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:226
+//line pkg/c90/grammar.y:182
 		{
 			yyVAL.typ = yyDollar[1].typ
 		}
+	case 83:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:189
+		{
+			yyVAL.str = yyDollar[1].str
+		}
+	case 85:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:194
+		{
+			yyVAL.str = yyDollar[1].str
+		}
+	case 86:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:195
+		{
+			yyVAL.str = yyDollar[1].str
+		}
+	case 94:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:209
+		{
+			// https://stackoverflow.com/a/697531
+			yyVAL.typ = &ASTType{typ: "short"}
+		}
 	case 95:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:252
+//line pkg/c90/grammar.y:213
 		{
 			yyVAL.typ = &ASTType{typ: "int"}
 		}
+	case 96:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:214
+		{
+			yyVAL.typ = &ASTType{typ: "long"}
+		}
+	case 97:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:215
+		{
+			yyVAL.typ = &ASTType{typ: "float"}
+		}
+	case 98:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:216
+		{
+			yyVAL.typ = &ASTType{typ: "double"}
+		}
+	case 99:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:217
+		{
+			yyVAL.typ = &ASTType{typ: "signed"}
+		}
+	case 100:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:218
+		{
+			yyVAL.typ = &ASTType{typ: "unsigned"}
+		}
 	case 132:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:328
+//line pkg/c90/grammar.y:289
 		{ /*abcd*/
 			yyVAL.str = yyDollar[1].str
 		}
+	case 184:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:384
+		{
+			yyVAL.n = yyDollar[2].n
+		}
+	case 186:
+		yyDollar = yyS[yypt-1 : yypt+1]
+//line pkg/c90/grammar.y:389
+		{
+			yyVAL.n = ASTDeclList{yyDollar[1].n.(*ASTDecl)}
+		}
+	case 187:
+		yyDollar = yyS[yypt-2 : yypt+1]
+//line pkg/c90/grammar.y:390
+		{
+			li := yyDollar[1].n.(ASTDeclList)
+			li = append(li, yyDollar[2].n.(*ASTDecl))
+			yyVAL.n = li
+		}
 	case 204:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:464
+//line pkg/c90/grammar.y:429
 		{
 			AST = &ASTNode{inner: yyDollar[1].n}
 		}
 	case 206:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:469
+//line pkg/c90/grammar.y:434
 		{
 			yyVAL.n = yyDollar[1].n
 		}
+	case 208:
+		yyDollar = yyS[yypt-4 : yypt+1]
+//line pkg/c90/grammar.y:439
+		{
+			panic("Old K&R style function parsed (1)")
+		}
 	case 209:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:475
+//line pkg/c90/grammar.y:440
 		{
 			yyVAL.n = &ASTFunction{typ: yyDollar[1].typ, name: yyDollar[2].str, body: yyDollar[3].n}
+		}
+	case 210:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:441
+		{
+			panic("Old K&R style function parsed (2)")
+		}
+	case 211:
+		yyDollar = yyS[yypt-2 : yypt+1]
+//line pkg/c90/grammar.y:442
+		{
+			yyVAL.n = &ASTFunction{typ: &ASTType{typ: "int"}, name: yyDollar[1].str, body: yyDollar[2].n}
 		}
 	}
 	goto yystack /* stack new state and value */

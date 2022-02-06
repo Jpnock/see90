@@ -31,19 +31,19 @@
 /volatile/		{ count(yylex); return VOLATILE; }
 /while/			{ count(yylex); return WHILE; }
 
-/[a-zA-Z_]([a-zA-Z_]|[0-9])*/		{ count(yylex); return checkType(); }
+/[a-zA-Z_]([a-zA-Z_]|[0-9])*/		{ count(yylex); lval.str=yylex.Text(); return checkType(); }
 
-/0[xX][a-fA-F0-9]+((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))?/		{ count(yylex); return CONSTANT; }
-/0[0-7]*((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))?/		{ count(yylex); return CONSTANT; }
-/[1-9][0-9]*((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))?/		{ count(yylex); return CONSTANT; }
-/L?'(\\.|[^\\'\n])+'/	{ count(yylex); return CONSTANT; }
+/0[xX][a-fA-F0-9]+((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))?/		{ count(yylex); lval.str=yylex.Text(); return CONSTANT; }
+/0[0-7]*((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))?/		{ count(yylex); lval.str=yylex.Text(); return CONSTANT; }
+/[1-9][0-9]*((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))?/		{ count(yylex); lval.str=yylex.Text(); return CONSTANT; }
+/L?'(\\.|[^\\'\n])+'/	{ count(yylex); lval.str=yylex.Text(); return CONSTANT; }
 
-/[0-9]+([Ee][+-]?[0-9]+)(f|F|l|L)?/		{ count(yylex); return CONSTANT; }
-/[0-9]*\.[0-9]+([Ee][+-]?[0-9]+)?(f|F|l|L)?/	{ count(yylex); return CONSTANT; }
-/[0-9]+\.[0-9]*([Ee][+-]?[0-9]+)?(f|F|l|L)?/	{ count(yylex); return CONSTANT; }
-/0[xX][a-fA-F0-9]+([Pp][+-]?[0-9]+)(f|F|l|L)?/	{ count(yylex); return CONSTANT; }
-/0[xX][a-fA-F0-9]*\.[a-fA-F0-9]+([Pp][+-]?[0-9]+)?(f|F|l|L)?/     { count(yylex); return CONSTANT; }
-/0[xX][a-fA-F0-9]+\.[a-fA-F0-9]*([Pp][+-]?[0-9]+)?(f|F|l|L)?/     { count(yylex); return CONSTANT; }
+/[0-9]+([Ee][+-]?[0-9]+)(f|F|l|L)?/		{ count(yylex); lval.str=yylex.Text(); return CONSTANT; }
+/[0-9]*\.[0-9]+([Ee][+-]?[0-9]+)?(f|F|l|L)?/	{ count(yylex); lval.str=yylex.Text(); return CONSTANT; }
+/[0-9]+\.[0-9]*([Ee][+-]?[0-9]+)?(f|F|l|L)?/	{ count(yylex); lval.str=yylex.Text(); return CONSTANT; }
+/0[xX][a-fA-F0-9]+([Pp][+-]?[0-9]+)(f|F|l|L)?/	{ count(yylex); lval.str=yylex.Text(); return CONSTANT; }
+/0[xX][a-fA-F0-9]*\.[a-fA-F0-9]+([Pp][+-]?[0-9]+)?(f|F|l|L)?/     { count(yylex); lval.str=yylex.Text(); return CONSTANT; }
+/0[xX][a-fA-F0-9]+\.[a-fA-F0-9]*([Pp][+-]?[0-9]+)?(f|F|l|L)?/     { count(yylex); lval.str=yylex.Text(); return CONSTANT; }
 
 
 /L?\"(\\.|[^\\"\n])*\"/	{ count(yylex); return STRING_LITERAL; }
