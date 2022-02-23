@@ -44,7 +44,7 @@ primary_expression
 	: IDENTIFIER { $$.n = &ASTIdentifier{ident: $1.str} }
 	| CONSTANT { $$.n = &ASTConstant{value: $1.str}}
 	| STRING_LITERAL
-	| '(' expression ')'
+	| '(' expression ')' { $$.n = &ASTBrackets{$2.n} }
 	;
 
 postfix_expression
@@ -88,65 +88,65 @@ cast_expression
 
 multiplicative_expression
 	: cast_expression {$$.n = $1.n}
-	| multiplicative_expression '*' cast_expression
-	| multiplicative_expression '/' cast_expression
-	| multiplicative_expression '%' cast_expression
+	| multiplicative_expression '*' cast_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeMul} }
+	| multiplicative_expression '/' cast_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeDiv} }
+	| multiplicative_expression '%' cast_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeMod} }
 	;
 
 additive_expression
 	: multiplicative_expression {$$.n = $1.n}
-	| additive_expression '+' multiplicative_expression
-	| additive_expression '-' multiplicative_expression
+	| additive_expression '+' multiplicative_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeAdd } }
+	| additive_expression '-' multiplicative_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeSub } }
 	;
 
 shift_expression
 	: additive_expression {$$.n = $1.n}
-	| shift_expression LEFT_OP additive_expression
-	| shift_expression RIGHT_OP additive_expression
+	| shift_expression LEFT_OP additive_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeLeftShift} }
+	| shift_expression RIGHT_OP additive_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeRightShift} }
 	;
 
 relational_expression
 	: shift_expression {$$.n = $1.n}
-	| relational_expression '<' shift_expression
-	| relational_expression '>' shift_expression
-	| relational_expression LE_OP shift_expression
-	| relational_expression GE_OP shift_expression
+	| relational_expression '<' shift_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeLessThan} }
+	| relational_expression '>' shift_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeGreaterThan} }
+	| relational_expression LE_OP shift_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeLessOrEqual} }
+	| relational_expression GE_OP shift_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeGreaterOrEqual} }
 	;
 
 equality_expression
 	: relational_expression {$$.n = $1.n}
-	| equality_expression EQ_OP relational_expression
-	| equality_expression NE_OP relational_expression
+	| equality_expression EQ_OP relational_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeEquality} }
+	| equality_expression NE_OP relational_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeNotEquality} }
 	;
 
 and_expression
 	: equality_expression {$$.n = $1.n}
-	| and_expression '&' equality_expression
+	| and_expression '&' equality_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeBitwiseAnd} }
 	;
 
 exclusive_or_expression
 	: and_expression {$$.n = $1.n}
-	| exclusive_or_expression '^' and_expression
+	| exclusive_or_expression '^' and_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeXor} }
 	;
 
 inclusive_or_expression
 	: exclusive_or_expression {$$.n = $1.n}
-	| inclusive_or_expression '|' exclusive_or_expression
+	| inclusive_or_expression '|' exclusive_or_expression  { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeBitwiseOr} }
 	;
 
 logical_and_expression
 	: inclusive_or_expression {$$.n = $1.n}
-	| logical_and_expression AND_OP inclusive_or_expression
+	| logical_and_expression AND_OP inclusive_or_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeLogicalAnd} }
 	;
 
 logical_or_expression
 	: logical_and_expression {$$.n = $1.n}
-	| logical_or_expression OR_OP logical_and_expression
+	| logical_or_expression OR_OP logical_and_expression { $$.n = &ASTExprBinary{lhs: $1.n, rhs: $3.n, typ: ASTExprBinaryTypeLogicalOr} }
 	;
 
 conditional_expression
 	: logical_or_expression {$$.n = $1.n}
-	| logical_or_expression '?' expression ':' conditional_expression
+	| logical_or_expression '?' expression ':' conditional_expression {panic(":c found ternary")}
 	;
 
 assignment_expression
