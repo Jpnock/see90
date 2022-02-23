@@ -13,9 +13,9 @@ type Node interface {
 	Describe(indent int) string
 }
 
-type ASTDeclList []*ASTDecl
+type ASTDeclaratorList []*ASTDecl
 
-func (t ASTDeclList) Describe(indent int) string {
+func (t ASTDeclaratorList) Describe(indent int) string {
 	var sb strings.Builder
 	for i, decl := range t {
 		if i != 0 {
@@ -26,16 +26,43 @@ func (t ASTDeclList) Describe(indent int) string {
 	return sb.String()
 }
 
-type ASTDecl struct {
+type ASTIdentifier struct {
 	ident string
-	typ   *ASTType
+}
+
+func (t *ASTIdentifier) Describe(indent int) string {
+	if t == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s%s", genIndent(indent), t.ident)
+}
+
+type ASTDecl struct {
+	ident   string
+	typ     *ASTType
+	initVal Node
 }
 
 func (t *ASTDecl) Describe(indent int) string {
 	if t == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s%s : %s", genIndent(indent), t.ident, t.typ.Describe(indent))
+	if t.initVal == nil {
+		return fmt.Sprintf("%s%s : %s", genIndent(indent), t.ident, t.typ.Describe(0))
+	} else {
+		return fmt.Sprintf("%s%s = %s : %s", genIndent(indent), t.ident, t.initVal.Describe(0), t.typ.Describe(0))
+	}
+}
+
+type ASTConstant struct {
+	value string
+}
+
+func (t *ASTConstant) Describe(indent int) string {
+	if t == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s%s", genIndent(indent), t.value)
 }
 
 type ASTNode struct {

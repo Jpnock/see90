@@ -1,6 +1,11 @@
 %{
 package c90
 
+import (
+	"fmt"
+	"os"
+)
+
 var AST Node
 
 func init() {
@@ -35,14 +40,14 @@ func Parse(yylex yyLexer) int {
 %%
 
 primary_expression
-	: IDENTIFIER
-	| CONSTANT
+	: IDENTIFIER { $$.n = &ASTIdentifier{ident: $1.str} }
+	| CONSTANT { $$.n = &ASTConstant{value: $1.str}}
 	| STRING_LITERAL
 	| '(' expression ')'
 	;
 
 postfix_expression
-	: primary_expression
+	: primary_expression {$$.n = $1.n}
 	| postfix_expression '[' expression ']'
 	| postfix_expression '(' ')'
 	| postfix_expression '(' argument_expression_list ')'
@@ -58,7 +63,7 @@ argument_expression_list
 	;
 
 unary_expression
-	: postfix_expression
+	: postfix_expression {$$.n = $1.n}
 	| INC_OP unary_expression
 	| DEC_OP unary_expression
 	| unary_operator cast_expression
@@ -76,31 +81,31 @@ unary_operator
 	;
 
 cast_expression
-	: unary_expression
+	: unary_expression {$$.n = $1.n}
 	| '(' type_name ')' cast_expression
 	;
 
 multiplicative_expression
-	: cast_expression
+	: cast_expression {$$.n = $1.n}
 	| multiplicative_expression '*' cast_expression
 	| multiplicative_expression '/' cast_expression
 	| multiplicative_expression '%' cast_expression
 	;
 
 additive_expression
-	: multiplicative_expression
+	: multiplicative_expression {$$.n = $1.n}
 	| additive_expression '+' multiplicative_expression
 	| additive_expression '-' multiplicative_expression
 	;
 
 shift_expression
-	: additive_expression
+	: additive_expression {$$.n = $1.n}
 	| shift_expression LEFT_OP additive_expression
 	| shift_expression RIGHT_OP additive_expression
 	;
 
 relational_expression
-	: shift_expression
+	: shift_expression {$$.n = $1.n}
 	| relational_expression '<' shift_expression
 	| relational_expression '>' shift_expression
 	| relational_expression LE_OP shift_expression
@@ -108,44 +113,43 @@ relational_expression
 	;
 
 equality_expression
-	: relational_expression
+	: relational_expression {$$.n = $1.n}
 	| equality_expression EQ_OP relational_expression
 	| equality_expression NE_OP relational_expression
 	;
 
 and_expression
-	: equality_expression
+	: equality_expression {$$.n = $1.n}
 	| and_expression '&' equality_expression
 	;
 
 exclusive_or_expression
-	: and_expression
+	: and_expression {$$.n = $1.n}
 	| exclusive_or_expression '^' and_expression
 	;
 
 inclusive_or_expression
-	: exclusive_or_expression
+	: exclusive_or_expression {$$.n = $1.n}
 	| inclusive_or_expression '|' exclusive_or_expression
 	;
 
 logical_and_expression
-	: inclusive_or_expression
+	: inclusive_or_expression {$$.n = $1.n}
 	| logical_and_expression AND_OP inclusive_or_expression
 	;
 
 logical_or_expression
-	: logical_and_expression
+	: logical_and_expression {$$.n = $1.n}
 	| logical_or_expression OR_OP logical_and_expression
 	;
 
 conditional_expression
-	: logical_or_expression
+	: logical_or_expression {$$.n = $1.n}
 	| logical_or_expression '?' expression ':' conditional_expression
 	;
 
 assignment_expression
-	: conditional_expression
-	| unary_expression assignment_operator assignment_expression
+	: conditional_expression {$$.n = $1.n}
 	;
 
 assignment_operator
@@ -172,8 +176,16 @@ constant_expression
 	;
 
 declaration
-	: declaration_specifiers ';'
-	| declaration_specifiers init_declarator_list ';' { $$.n = &ASTDecl{ident: $2.str, typ: $1.typ} } // Variable eclaration.
+	: declaration_specifiers ';' { 
+		fmt.Fprintf(os.Stderr, "Ignoring declaration specifier without init declaration list\n")
+		$$.n = ASTDeclaratorList{}
+	}
+	| declaration_specifiers init_declarator_list ';' {
+		for _, entry := range $2.n.(ASTDeclaratorList) {
+			entry.typ = $1.typ
+		}
+		$$.n = $2.n
+	}
 	;
 
 declaration_specifiers
@@ -186,13 +198,17 @@ declaration_specifiers
 	;
 
 init_declarator_list
-	: init_declarator {$$.str = $1.str}
-	| init_declarator_list ',' init_declarator
+	: init_declarator { $$.n = ASTDeclaratorList{$1.n.(*ASTDecl)} }
+	| init_declarator_list ',' init_declarator {
+		li := $1.n.(ASTDeclaratorList)
+		li = append(li, $3.n.(*ASTDecl))
+		$$.n = li
+	  }
 	;
 
 init_declarator
-	: declarator {$$.str = $1.str}
-	| declarator '=' initializer {$$.str = $1.str} // TODO: add initializer
+	: declarator { $$.n = &ASTDecl{ident: $1.str} }
+	| declarator '=' initializer { $$.n = &ASTDecl{ident: $1.str, initVal: $3.n} }
 	;
 
 storage_class_specifier
@@ -286,7 +302,7 @@ declarator
 	;
 
 direct_declarator
-	: IDENTIFIER	{ /*abcd*/ $$.str = $1.str }
+	: IDENTIFIER	{ $$.str = $1.str }
 	| '(' declarator ')'
 	| direct_declarator '[' constant_expression ']'
 	| direct_declarator '[' ']'
@@ -353,7 +369,7 @@ direct_abstract_declarator
 	;
 
 initializer
-	: assignment_expression
+	: assignment_expression {$$.n = $1.n}
 	| '{' initializer_list '}'
 	| '{' initializer_list ',' '}'
 	;
@@ -386,10 +402,10 @@ compound_statement
 	;
 
 declaration_list
-	: declaration { $$.n = ASTDeclList{$1.n.(*ASTDecl)} }
+	: declaration { $$.n = $1.n }
 	| declaration_list declaration {
-		li := $1.n.(ASTDeclList)
-		li = append(li, $2.n.(*ASTDecl))
+		li := $1.n.(ASTDeclaratorList)
+		li = append(li, $2.n.(ASTDeclaratorList)...)
 		$$.n = li
 	  }
 	;
