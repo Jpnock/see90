@@ -22,6 +22,7 @@ func Parse(yylex yyLexer) int {
   n Node
   str string
   typ *ASTType
+  assignmentOperator ASTAssignmentOperator
 }
 
 %token IDENTIFIER CONSTANT STRING_LITERAL SIZEOF
@@ -150,24 +151,25 @@ conditional_expression
 
 assignment_expression
 	: conditional_expression {$$.n = $1.n}
+	| unary_expression assignment_operator assignment_expression { $$.n = &ASTAssignment{ident: $1.str, operator: $2.assignmentOperator, value: $3.n} }
 	;
 
 assignment_operator
-	: '='
-	| MUL_ASSIGN
-	| DIV_ASSIGN
-	| MOD_ASSIGN
-	| ADD_ASSIGN
-	| SUB_ASSIGN
-	| LEFT_ASSIGN
-	| RIGHT_ASSIGN
-	| AND_ASSIGN
-	| XOR_ASSIGN
-	| OR_ASSIGN
+	: '=' { $$.assignmentOperator = ASTAssignmentOperatorEquals }
+	| MUL_ASSIGN { $$.assignmentOperator = ASTAssignmentOperatorMulEquals }
+	| DIV_ASSIGN { $$.assignmentOperator = ASTAssignmentOperatorDivEquals }
+	| MOD_ASSIGN { $$.assignmentOperator = ASTAssignmentOperatorModEquals }
+	| ADD_ASSIGN { $$.assignmentOperator = ASTAssignmentOperatorAddEquals }
+	| SUB_ASSIGN { $$.assignmentOperator = ASTAssignmentOperatorSubEquals }
+	| LEFT_ASSIGN { $$.assignmentOperator = ASTAssignmentOperatorLeftEquals }
+	| RIGHT_ASSIGN { $$.assignmentOperator = ASTAssignmentOperatorRightEquals }
+	| AND_ASSIGN { $$.assignmentOperator = ASTAssignmentOperatorAndEquals }
+	| XOR_ASSIGN { $$.assignmentOperator = ASTAssignmentOperatorXorEquals }
+	| OR_ASSIGN { $$.assignmentOperator = ASTAssignmentOperatorOrEquals }
 	;
 
 expression
-	: assignment_expression
+	: assignment_expression {$$.n = $1.n}
 	| expression ',' assignment_expression
 	;
 
@@ -385,7 +387,7 @@ statement
 	| expression_statement
 	| selection_statement
 	| iteration_statement
-	| jump_statement
+	| jump_statement { $$.n = $1.n }
 	;
 
 labeled_statement
@@ -396,9 +398,9 @@ labeled_statement
 
 compound_statement
 	: '{' '}'
-	| '{' statement_list '}'
+	| '{' statement_list '}' { $$.n = $2.n }
 	| '{' declaration_list '}' { $$.n = $2.n }
-	| '{' declaration_list statement_list '}'
+	| '{' declaration_list statement_list '}' { $$.n = &ASTDeclarationStatementLists{decls: $2.n.(ASTDeclaratorList), stmts: $3.n.(ASTStatementList)} }
 	;
 
 declaration_list
@@ -411,8 +413,12 @@ declaration_list
 	;
 
 statement_list
-	: statement
-	| statement_list statement
+	: statement { $$.n = ASTStatementList{$1.n} }
+	| statement_list statement {
+		li := $1.n.(ASTStatementList)
+		li = append(li, $2.n)
+		$$.n = li
+	  }
 	;
 
 expression_statement
@@ -437,8 +443,8 @@ jump_statement
 	: GOTO IDENTIFIER ';'
 	| CONTINUE ';'
 	| BREAK ';'
-	| RETURN ';'
-	| RETURN expression ';'
+	| RETURN ';' { $$.n = &ASTReturn{} }
+	| RETURN expression ';' { $$.n = &ASTReturn{returnVal: $2.n} }
 	;
 
 translation_unit

@@ -7,4 +7,8 @@ int main()
     int d = 3;
 
     int;
+
+    d = 5 + 6;
+
+    return d = 5;
 }
