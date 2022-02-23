@@ -879,6 +879,12 @@ yydefault:
 		{
 			yyVAL.n = &ASTConstant{value: yyDollar[1].str}
 		}
+	case 4:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:47
+		{
+			yyVAL.n = &ASTBrackets{yyDollar[2].n}
+		}
 	case 5:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:51
@@ -903,11 +909,41 @@ yydefault:
 		{
 			yyVAL.n = yyDollar[1].n
 		}
+	case 30:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:91
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeMul}
+		}
+	case 31:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:92
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeDiv}
+		}
+	case 32:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:93
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeMod}
+		}
 	case 33:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:97
 		{
 			yyVAL.n = yyDollar[1].n
+		}
+	case 34:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:98
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeAdd}
+		}
+	case 35:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:99
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeSub}
 		}
 	case 36:
 		yyDollar = yyS[yypt-1 : yypt+1]
@@ -915,11 +951,47 @@ yydefault:
 		{
 			yyVAL.n = yyDollar[1].n
 		}
+	case 37:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:104
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeLeftShift}
+		}
+	case 38:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:105
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeRightShift}
+		}
 	case 39:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:109
 		{
 			yyVAL.n = yyDollar[1].n
+		}
+	case 40:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:110
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeLessThan}
+		}
+	case 41:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:111
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeGreaterThan}
+		}
+	case 42:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:112
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeLessOrEqual}
+		}
+	case 43:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:113
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeGreaterOrEqual}
 		}
 	case 44:
 		yyDollar = yyS[yypt-1 : yypt+1]
@@ -927,11 +999,29 @@ yydefault:
 		{
 			yyVAL.n = yyDollar[1].n
 		}
+	case 45:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:118
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeEquality}
+		}
+	case 46:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:119
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeNotEquality}
+		}
 	case 47:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:123
 		{
 			yyVAL.n = yyDollar[1].n
+		}
+	case 48:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:124
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeBitwiseAnd}
 		}
 	case 49:
 		yyDollar = yyS[yypt-1 : yypt+1]
@@ -939,11 +1029,23 @@ yydefault:
 		{
 			yyVAL.n = yyDollar[1].n
 		}
+	case 50:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:129
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeXor}
+		}
 	case 51:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:133
 		{
 			yyVAL.n = yyDollar[1].n
+		}
+	case 52:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:134
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeBitwiseOr}
 		}
 	case 53:
 		yyDollar = yyS[yypt-1 : yypt+1]
@@ -951,17 +1053,35 @@ yydefault:
 		{
 			yyVAL.n = yyDollar[1].n
 		}
+	case 54:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:139
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeLogicalAnd}
+		}
 	case 55:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:143
 		{
 			yyVAL.n = yyDollar[1].n
 		}
+	case 56:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:144
+		{
+			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeLogicalOr}
+		}
 	case 57:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:148
 		{
 			yyVAL.n = yyDollar[1].n
+		}
+	case 58:
+		yyDollar = yyS[yypt-5 : yypt+1]
+//line pkg/c90/grammar.y:149
+		{
+			panic(":c found ternary")
 		}
 	case 59:
 		yyDollar = yyS[yypt-1 : yypt+1]

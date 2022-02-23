@@ -13,6 +13,18 @@ type Node interface {
 	Describe(indent int) string
 }
 
+type ASTBrackets struct {
+	Node
+}
+
+func (t ASTBrackets) Describe(indent int) string {
+	var sb strings.Builder
+	sb.WriteString("(")
+	sb.WriteString(t.Node.Describe(0))
+	sb.WriteString(")")
+	return sb.String()
+}
+
 type ASTDeclarationStatementLists struct {
 	decls ASTDeclaratorList
 	stmts ASTStatementList
