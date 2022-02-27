@@ -43,30 +43,42 @@ func Parse(yylex yyLexer) int {
 primary_expression
 	: IDENTIFIER { $$.n = &ASTIdentifier{ident: $1.str} }
 	| CONSTANT { $$.n = &ASTConstant{value: $1.str}}
-	| STRING_LITERAL
+	| STRING_LITERAL { $$.n = &ASTStringLiteral{value: $1.str} }
 	| '(' expression ')' { $$.n = &ASTBrackets{$2.n} }
 	;
 
 postfix_expression
 	: primary_expression {$$.n = $1.n}
 	| postfix_expression '[' expression ']'
-	| postfix_expression '(' ')'
-	| postfix_expression '(' argument_expression_list ')'
+	| postfix_expression '(' ')' { $$.n = &ASTFunctionCall{function: $1.n} }
+	| postfix_expression '(' argument_expression_list ')' { $$.n = &ASTFunctionCall{function: $1.n, arguments: $3.n.(ASTArgumentExpressionList)} }
 	| postfix_expression '.' IDENTIFIER
-	| postfix_expression PTR_OP IDENTIFIER
-	| postfix_expression INC_OP
-	| postfix_expression DEC_OP
+	| postfix_expression PTR_OP IDENTIFIER {}
+	| postfix_expression INC_OP {
+		$$.n = &ASTExprSuffixUnary{typ: ASTExprSuffixUnaryTypeIncrement, lvalue: $1.n}
+	}
+	| postfix_expression DEC_OP {
+		$$.n = &ASTExprSuffixUnary{typ: ASTExprSuffixUnaryTypeDecrement, lvalue: $1.n}
+	}
 	;
 
 argument_expression_list
-	: assignment_expression
-	| argument_expression_list ',' assignment_expression
+	: assignment_expression { $$.n = ASTArgumentExpressionList{$1.n.(*ASTAssignmentExpression)} }
+	| argument_expression_list ',' assignment_expression {
+		li := $1.n.(ASTArgumentExpressionList)
+		li = append(li, $3.n.(*ASTAssignmentExpression))
+		$$.n = li
+	}
 	;
 
 unary_expression
 	: postfix_expression {$$.n = $1.n}
-	| INC_OP unary_expression
-	| DEC_OP unary_expression
+	| INC_OP unary_expression { 
+		$$.n = &ASTExprPrefixUnary{typ: ASTExprPrefixUnaryTypeIncrement, lvalue: $2.n} 
+	}
+	| DEC_OP unary_expression {
+		$$.n = &ASTExprPrefixUnary{typ: ASTExprPrefixUnaryTypeDecrement, lvalue: $2.n}
+	}
 	| unary_operator cast_expression
 	| SIZEOF unary_expression
 	| SIZEOF '(' type_name ')'
@@ -308,9 +320,15 @@ direct_declarator
 	| '(' declarator ')'
 	| direct_declarator '[' constant_expression ']'
 	| direct_declarator '[' ']'
-	| direct_declarator '(' parameter_type_list ')'
-	| direct_declarator '(' identifier_list ')'
-	| direct_declarator '(' ')'
+	| direct_declarator '(' parameter_type_list ')' {
+		// Function declaration with arguments
+	}
+	| direct_declarator '(' identifier_list ')' {
+		// Function declaration for old K&R style funcs
+	}
+	| direct_declarator '(' ')' {
+		// Function declaration with no arguments
+	}
 	;
 
 pointer
