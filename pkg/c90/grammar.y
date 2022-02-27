@@ -51,7 +51,12 @@ postfix_expression
 	: primary_expression {$$.n = $1.n}
 	| postfix_expression '[' expression ']'
 	| postfix_expression '(' ')' { $$.n = &ASTFunctionCall{function: $1.n} }
-	| postfix_expression '(' argument_expression_list ')' { $$.n = &ASTFunctionCall{function: $1.n, arguments: $3.n.(ASTArgumentExpressionList)} }
+	| postfix_expression '(' argument_expression_list ')' { 
+		$$.n = &ASTFunctionCall{
+			function: $1.n,
+			arguments: $3.n.(ASTArgumentExpressionList),
+		}
+	}
 	| postfix_expression '.' IDENTIFIER
 	| postfix_expression PTR_OP IDENTIFIER {}
 	| postfix_expression INC_OP {
@@ -63,10 +68,10 @@ postfix_expression
 	;
 
 argument_expression_list
-	: assignment_expression { $$.n = ASTArgumentExpressionList{$1.n.(*ASTAssignmentExpression)} }
+	: assignment_expression { $$.n = ASTArgumentExpressionList{$1.n.(*ASTAssignment)} }
 	| argument_expression_list ',' assignment_expression {
 		li := $1.n.(ASTArgumentExpressionList)
-		li = append(li, $3.n.(*ASTAssignmentExpression))
+		li = append(li, $3.n.(*ASTAssignment))
 		$$.n = li
 	}
 	;
@@ -162,8 +167,12 @@ conditional_expression
 	;
 
 assignment_expression
-	: conditional_expression {$$.n = $1.n}
-	| unary_expression assignment_operator assignment_expression { $$.n = &ASTAssignment{ident: $1.str, operator: $2.assignmentOperator, value: $3.n} }
+	: conditional_expression {
+		$$.n = &ASTAssignment{value: $1.n, tmpAssign: true} 
+	}
+	| unary_expression assignment_operator assignment_expression { 
+		$$.n = &ASTAssignment{ident: $1.str, operator: $2.assignmentOperator, value: $3.n} 
+	}
 	;
 
 assignment_operator
@@ -205,7 +214,7 @@ declaration
 declaration_specifiers
 	: storage_class_specifier
 	| storage_class_specifier declaration_specifiers
-	| type_specifier { $$.typ = $1.typ }
+	| type_specifier { $$.n = $1.typ }
 	| type_specifier declaration_specifiers
 	| type_qualifier 
 	| type_qualifier declaration_specifiers
@@ -312,22 +321,36 @@ type_qualifier
 
 declarator
 	: pointer direct_declarator
-	| direct_declarator
+	| direct_declarator { $$.n = $1.n }
 	;
 
 direct_declarator
-	: IDENTIFIER	{ $$.str = $1.str }
+	: IDENTIFIER	{ 
+		$$.n = &ASTDirectDeclarator{
+			identifier: &ASTIdentifier{
+				ident: $1.str,
+			},
+		}
+	}
 	| '(' declarator ')'
 	| direct_declarator '[' constant_expression ']'
 	| direct_declarator '[' ']'
 	| direct_declarator '(' parameter_type_list ')' {
 		// Function declaration with arguments
+		$$.n = &ASTDirectDeclarator{
+			decl: $1.n.(*ASTDirectDeclarator),
+			parameters: $3.n.(*ASTParameterList),
+		}
 	}
 	| direct_declarator '(' identifier_list ')' {
 		// Function declaration for old K&R style funcs
 	}
 	| direct_declarator '(' ')' {
 		// Function declaration with no arguments
+		$$.n = &ASTDirectDeclarator{
+			decl: $1.n.(*ASTDirectDeclarator),
+			parameters: &ASTParameterList{},
+		}
 	}
 	;
 
@@ -343,21 +366,45 @@ type_qualifier_list
 	| type_qualifier_list type_qualifier
 	;
 
-
 parameter_type_list
-	: parameter_list
-	| parameter_list ',' ELLIPSIS
+	: parameter_list { 
+		$$.n = $1.n 
+	}
+	| parameter_list ',' ELLIPSIS {
+		paramList := $1.n.(*ASTParameterList)
+		paramList.elipsis = true
+		$$.n = paramList
+	}
 	;
 
 parameter_list
-	: parameter_declaration
-	| parameter_list ',' parameter_declaration
+	: parameter_declaration {
+		$$.n = &ASTParameterList{
+			li: []*ASTParameterDeclaration{
+				$1.n.(*ASTParameterDeclaration),
+			},
+		}
+	}
+	| parameter_list ',' parameter_declaration {
+		li := $1.n.(*ASTParameterList)
+		li.li = append(li.li, $3.n.(*ASTParameterDeclaration))
+		$$.n = li
+	}
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator
+	: declaration_specifiers declarator {
+		$$.n = &ASTParameterDeclaration{
+			specifier: $1.n,
+			declarator: $2.n,
+		}
+	}
 	| declaration_specifiers abstract_declarator
-	| declaration_specifiers
+	| declaration_specifiers {
+		$$.n = &ASTParameterDeclaration{
+			specifier: $1.n,
+		}
+	}
 	;
 
 identifier_list
@@ -527,7 +574,7 @@ external_declaration
 
 function_definition
 	: declaration_specifiers declarator declaration_list compound_statement { panic("Old K&R style function parsed (1)") }// Old K&R style C parameter declarations
-	| declaration_specifiers declarator compound_statement { $$.n = &ASTFunction{typ: $1.typ, name: $2.str, body: $3.n} }
+	| declaration_specifiers declarator compound_statement { $$.n = &ASTFunction{typ: $1.typ, decl: $2.n.(*ASTDirectDeclarator), body: $3.n} }
 	| declarator declaration_list compound_statement { panic("Old K&R style function parsed (2)") }
-	| declarator compound_statement { $$.n = &ASTFunction{typ: &ASTType{typ: "int"}, name: $1.str, body: $2.n} } // Function without a type
+	| declarator compound_statement { $$.n = &ASTFunction{typ: &ASTType{typ: "int"}, decl: $1.n.(*ASTDirectDeclarator), body: $2.n} } // Function without a type
 	;

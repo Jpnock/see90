@@ -130,23 +130,31 @@ func (t *ASTFunctionCall) Describe(indent int) string {
 			sb.WriteString(", ")
 		}
 	}
-	return fmt.Sprintf("%s%s()", genIndent(indent), sb.String())
+	return fmt.Sprintf("%s%s(%s)", genIndent(indent), t.function.Describe(0), sb.String())
 }
 
 type ASTAssignment struct {
 	ident    string
 	operator ASTAssignmentOperator
 	value    Node
+
+	// tmpAssign is set if the assignment is implicit (e.g. to a temporary
+	// variable to store the resut of a comparsion etc.). In this case
+	// only `value` will be set.
+	tmpAssign bool
 }
 
 func (t *ASTAssignment) Describe(indent int) string {
 	if t == nil {
 		return ""
 	}
+	if t.tmpAssign {
+		return fmt.Sprintf("%s%s", genIndent(indent), t.value.Describe(0))
+	}
 	return fmt.Sprintf("%s%s %s %s", genIndent(indent), t.ident, t.operator, t.value.Describe(0))
 }
 
-type ASTArgumentExpressionList []*ASTAssignmentExpression
+type ASTArgumentExpressionList []*ASTAssignment
 
 func (t ASTArgumentExpressionList) Describe(indent int) string {
 	var sb strings.Builder
@@ -157,21 +165,6 @@ func (t ASTArgumentExpressionList) Describe(indent int) string {
 		sb.WriteString(decl.Describe(indent))
 	}
 	return sb.String()
-}
-
-type ASTAssignmentExpression struct {
-	// either value can be supplied
-	assignment *ASTAssignment
-}
-
-func (t *ASTAssignmentExpression) Describe(indent int) string {
-	if t == nil {
-		return ""
-	}
-	if t.assignment != nil {
-		return t.Describe(indent)
-	}
-	panic("oh no")
 }
 
 type ASTDecl struct {
@@ -243,7 +236,7 @@ func (t *ASTType) Describe(indent int) string {
 
 type ASTFunction struct {
 	typ  *ASTType
-	name string
+	decl *ASTDirectDeclarator
 	body Node
 }
 
@@ -254,8 +247,64 @@ func (t *ASTFunction) Describe(indent int) string {
 
 	indentStr := genIndent(indent)
 	if t.body == nil {
-		return fmt.Sprintf("%sfunction (%s) -> %s {}", indentStr, t.name, t.typ.Describe(0))
+		return fmt.Sprintf("%sfunction (%s) -> %s {}", indentStr, t.decl.Describe(0), t.typ.Describe(0))
 	} else {
-		return fmt.Sprintf("%sfunction (%s) -> %s {\n%s\n}", indentStr, t.name, t.typ.Describe(0), t.body.Describe(indent+4))
+		return fmt.Sprintf("%sfunction (%s) -> %s {\n%s\n}", indentStr, t.decl.Describe(0), t.typ.Describe(0), t.body.Describe(indent+4))
 	}
+}
+
+type ASTParameterList struct {
+	li      []*ASTParameterDeclaration
+	elipsis bool
+}
+
+func (t ASTParameterList) Describe(indent int) string {
+	var sb strings.Builder
+	for i, decl := range t.li {
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(decl.Describe(indent))
+	}
+	return sb.String()
+}
+
+type ASTParameterDeclaration struct {
+	specifier  Node
+	declarator Node
+}
+
+func (t ASTParameterDeclaration) Describe(indent int) string {
+	var sb strings.Builder
+	sb.WriteString(t.specifier.Describe(indent))
+	if t.declarator != nil {
+		sb.WriteString(" ")
+		sb.WriteString(t.declarator.Describe(0))
+	}
+	return sb.String()
+}
+
+type ASTDirectDeclarator struct {
+	identifier *ASTIdentifier
+	decl       *ASTDirectDeclarator
+
+	// parameters is nil if it's not a function, else
+	// it has zero or more parameters.
+	parameters *ASTParameterList
+}
+
+func (t ASTDirectDeclarator) Describe(indent int) string {
+	var sb strings.Builder
+
+	if t.decl != nil {
+		sb.WriteString(t.decl.Describe(0))
+		if t.parameters != nil {
+			sb.WriteString("(")
+			sb.WriteString(t.parameters.Describe(0))
+			sb.WriteString(")")
+		}
+	} else {
+		sb.WriteString(t.identifier.Describe(0))
+	}
+	return sb.String()
 }
