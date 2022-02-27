@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-var AST Node
+var AST ASTTranslationUnit
 
 func init() {
 	yyDebug = 1
@@ -510,8 +510,14 @@ jump_statement
 	;
 
 translation_unit
-	: external_declaration { AST = &ASTNode{inner: $1.n} }
-	| translation_unit external_declaration
+	: external_declaration { 
+		AST = ASTTranslationUnit{
+			&ASTNode{inner: $1.n},
+		} 
+	}
+	| translation_unit external_declaration {
+		AST = append(AST, &ASTNode{inner: $2.n})
+	}
 	;
 
 external_declaration

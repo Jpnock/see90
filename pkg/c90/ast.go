@@ -14,6 +14,19 @@ type Node interface {
 	Describe(indent int) string
 }
 
+type ASTTranslationUnit []Node
+
+func (t ASTTranslationUnit) Describe(indent int) string {
+	var sb strings.Builder
+	for i, node := range t {
+		if i != 0 {
+			sb.WriteString("\n\n")
+		}
+		sb.WriteString(node.Describe(indent))
+	}
+	return sb.String()
+}
+
 type ASTBrackets struct {
 	Node
 }
