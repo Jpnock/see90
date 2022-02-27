@@ -8108,468 +8108,468 @@ OUTER0:
 		switch yylex.next(0) {
 		case 0:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return AUTO
 			}
 		case 1:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return BREAK
 			}
 		case 2:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return CASE
 			}
 		case 3:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return CHAR
 			}
 		case 4:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return CONST
 			}
 		case 5:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return CONTINUE
 			}
 		case 6:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return DEFAULT
 			}
 		case 7:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return DO
 			}
 		case 8:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return DOUBLE
 			}
 		case 9:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return ELSE
 			}
 		case 10:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return ENUM
 			}
 		case 11:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return EXTERN
 			}
 		case 12:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return FLOAT
 			}
 		case 13:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return FOR
 			}
 		case 14:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return GOTO
 			}
 		case 15:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return IF
 			}
 		case 16:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return INT
 			}
 		case 17:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return LONG
 			}
 		case 18:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return REGISTER
 			}
 		case 19:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return RETURN
 			}
 		case 20:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return SHORT
 			}
 		case 21:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return SIGNED
 			}
 		case 22:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return SIZEOF
 			}
 		case 23:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return STATIC
 			}
 		case 24:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return STRUCT
 			}
 		case 25:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return SWITCH
 			}
 		case 26:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return TYPEDEF
 			}
 		case 27:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return UNION
 			}
 		case 28:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return UNSIGNED
 			}
 		case 29:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return VOID
 			}
 		case 30:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return VOLATILE
 			}
 		case 31:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return WHILE
 			}
 		case 32:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				lval.str = yylex.Text()
 				return checkType()
 			}
 		case 33:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 34:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 35:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 36:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 37:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 38:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 39:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 40:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 41:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 42:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				lval.str = yylex.Text()
 				return CONSTANT
 			}
 		case 43:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return STRING_LITERAL
 			}
 		case 44:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return ELLIPSIS
 			}
 		case 45:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return RIGHT_ASSIGN
 			}
 		case 46:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return LEFT_ASSIGN
 			}
 		case 47:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return ADD_ASSIGN
 			}
 		case 48:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return SUB_ASSIGN
 			}
 		case 49:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return MUL_ASSIGN
 			}
 		case 50:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return DIV_ASSIGN
 			}
 		case 51:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return MOD_ASSIGN
 			}
 		case 52:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return AND_ASSIGN
 			}
 		case 53:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return XOR_ASSIGN
 			}
 		case 54:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return OR_ASSIGN
 			}
 		case 55:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return RIGHT_OP
 			}
 		case 56:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return LEFT_OP
 			}
 		case 57:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return INC_OP
 			}
 		case 58:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return DEC_OP
 			}
 		case 59:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return PTR_OP
 			}
 		case 60:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return AND_OP
 			}
 		case 61:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return OR_OP
 			}
 		case 62:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return LE_OP
 			}
 		case 63:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return GE_OP
 			}
 		case 64:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return EQ_OP
 			}
 		case 65:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return NE_OP
 			}
 		case 66:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int(';')
 			}
 		case 67:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int(123)
 			}
 		case 68:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int(125)
 			}
 		case 69:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int(',')
 			}
 		case 70:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int(':')
 			}
 		case 71:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('=')
 			}
 		case 72:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('(')
 			}
 		case 73:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int(')')
 			}
 		case 74:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('[')
 			}
 		case 75:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int(']')
 			}
 		case 76:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('.')
 			}
 		case 77:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('&')
 			}
 		case 78:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('!')
 			}
 		case 79:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('~')
 			}
 		case 80:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('-')
 			}
 		case 81:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('+')
 			}
 		case 82:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('*')
 			}
 		case 83:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('/')
 			}
 		case 84:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('%')
 			}
 		case 85:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('<')
 			}
 		case 86:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('>')
 			}
 		case 87:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('^')
 			}
 		case 88:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('|')
 			}
 		case 89:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 				return int('?')
 			}
 		case 90:
 			{
-				count(yylex)
+				count(yylex, &lval.str)
 			}
 		case 91:
 			{
@@ -8588,7 +8588,7 @@ var (
 	column = 0
 )
 
-func count(yylex *Lexer) {
+func count(yylex *Lexer, lvalStr *string) {
 	for _, c := range yylex.Text() {
 		if c == '\n' {
 			column = 0
@@ -8598,6 +8598,7 @@ func count(yylex *Lexer) {
 			column += 1
 		}
 	}
+	*lvalStr = yylex.Text()
 	return
 }
 

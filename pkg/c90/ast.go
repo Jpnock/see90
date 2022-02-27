@@ -100,6 +100,26 @@ func (t *ASTIdentifier) Describe(indent int) string {
 	return fmt.Sprintf("%s%s", genIndent(indent), t.ident)
 }
 
+type ASTFunctionCall struct {
+	// primary_expresion node
+	function  Node
+	arguments ASTArgumentExpressionList
+}
+
+func (t *ASTFunctionCall) Describe(indent int) string {
+	if t == nil {
+		return ""
+	}
+	var sb strings.Builder
+	for i, arg := range t.arguments {
+		sb.WriteString(arg.Describe(0))
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+	}
+	return fmt.Sprintf("%s%s()", genIndent(indent), sb.String())
+}
+
 type ASTAssignment struct {
 	ident    string
 	operator ASTAssignmentOperator

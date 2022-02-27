@@ -234,8 +234,8 @@ storage_class_specifier
 	;
 
 type_specifier
-	: VOID
-	| CHAR
+	: VOID { $$.typ = &ASTType{typ: "void"} }
+	| CHAR { $$.typ = &ASTType{typ: "char"} }
 	| SHORT { 
 		// https://stackoverflow.com/a/697531
 		$$.typ = &ASTType{typ: "short"}
@@ -248,7 +248,7 @@ type_specifier
 	| UNSIGNED { $$.typ = &ASTType{typ: "unsigned"} }
 	| struct_or_union_specifier
 	| enum_specifier
-	| TYPE_NAME
+	| TYPE_NAME { $$.typ = &ASTType{typ: $1.str} }
 	;
 
 struct_or_union_specifier
