@@ -150,3 +150,20 @@ func (t *ASTGoto) Describe(indent int) string {
 	}
 	return fmt.Sprintf("%sgoto :%s;", genIndent(indent), t.label.Describe(0))
 }
+
+type ASTLabeledStatement struct {
+	ident *ASTIdentifier
+	stmt  Node
+}
+
+func (t *ASTLabeledStatement) Describe(indent int) string {
+	if t == nil {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString("\n")
+	sb.WriteString(t.ident.Describe(0))
+	sb.WriteString(":\n")
+	sb.WriteString(t.stmt.Describe(indent))
+	return sb.String()
+}
