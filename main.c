@@ -1,3 +1,7 @@
+int my_func(int zz) {
+    return zz;
+}
+
 int main(int y, int z)
 {
     int b = 4, e, g, h, f = 1, i = 2;
@@ -70,6 +74,8 @@ int main(int y, int z)
     ++d;
 
     goto a;
+
+    return my_func(h == 2);
 
 a:
     return d = 5;
