@@ -32,9 +32,13 @@ type ASTDeclarationStatementLists struct {
 
 func (t ASTDeclarationStatementLists) Describe(indent int) string {
 	var sb strings.Builder
-	sb.WriteString(t.decls.Describe(indent))
-	sb.WriteString("\n")
-	sb.WriteString(t.stmts.Describe(indent))
+	if t.decls != nil {
+		sb.WriteString(t.decls.Describe(indent))
+		sb.WriteString("\n")
+	}
+	if t.stmts != nil {
+		sb.WriteString(t.stmts.Describe(indent))
+	}
 	return sb.String()
 }
 
@@ -43,6 +47,10 @@ type ASTStatementList []Node
 func (t ASTStatementList) Describe(indent int) string {
 	var sb strings.Builder
 	for i, decl := range t {
+		if decl == nil {
+			fmt.Fprintf(os.Stderr, "Found nil decl in statement list\n")
+			continue
+		}
 		if i != 0 {
 			sb.WriteString("\n")
 		}
@@ -126,6 +134,17 @@ type ASTConstant struct {
 }
 
 func (t *ASTConstant) Describe(indent int) string {
+	if t == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s%s", genIndent(indent), t.value)
+}
+
+type ASTStringLiteral struct {
+	value string
+}
+
+func (t *ASTStringLiteral) Describe(indent int) string {
 	if t == nil {
 		return ""
 	}
