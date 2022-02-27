@@ -447,7 +447,7 @@ initializer_list
 	;
 
 statement
-	: labeled_statement
+	: labeled_statement { $$.n = $1.n }
 	| compound_statement
 	| expression_statement
 	| selection_statement
@@ -456,7 +456,12 @@ statement
 	;
 
 labeled_statement
-	: IDENTIFIER ':' statement
+	: IDENTIFIER ':' statement {
+		$$.n = &ASTLabeledStatement{
+			ident: &ASTIdentifier{ident: $1.str},
+			stmt: $3.n,
+		}
+	}
 	| CASE constant_expression ':' statement
 	| DEFAULT ':' statement
 	;
