@@ -445,22 +445,66 @@ expression_statement
 	;
 
 selection_statement
-	: IF '(' expression ')' statement
-	| IF '(' expression ')' statement ELSE statement
+	: IF '(' expression ')' statement {
+		$$.n = &ASTIfStatement{
+			condition: $3.n,
+			body: $5.n,
+			elseBody: nil,
+		}
+	}
+	| IF '(' expression ')' statement ELSE statement {
+		$$.n = &ASTIfStatement{
+			condition: $3.n,
+			body: $5.n,
+			elseBody: $7.n,
+		}
+	}
 	| SWITCH '(' expression ')' statement
 	;
 
 iteration_statement
-	: WHILE '(' expression ')' statement
-	| DO statement WHILE '(' expression ')' ';'
-	| FOR '(' expression_statement expression_statement ')' statement
-	| FOR '(' expression_statement expression_statement expression ')' statement
+	: WHILE '(' expression ')' statement {
+		$$.n = &ASTWhileLoop{
+			condition: $3.n,
+			body: $5.n,
+		}
+	}
+	| DO statement WHILE '(' expression ')' ';' {
+		$$.n = &ASTDoWhileLoop{
+			condition: $5.n,
+			body: $2.n,
+		}
+	}
+	| FOR '(' expression_statement expression_statement ')' statement {
+		$$.n = &ASTForLoop{
+			initialiser: $3.n,
+			condition: $4.n,
+			postIterationExpr: nil,
+			body: $6.n,
+		}
+	}
+	| FOR '(' expression_statement expression_statement expression ')' statement {
+		$$.n = &ASTForLoop{
+			initialiser: $3.n,
+			condition: $4.n,
+			postIterationExpr: $5.n,
+			body: $7.n,
+		}
+	}
 	;
 
 jump_statement
-	: GOTO IDENTIFIER ';'
-	| CONTINUE ';'
-	| BREAK ';'
+	: GOTO IDENTIFIER ';' { 
+		$$.n = &ASTGoto{
+			label: &ASTIdentifier{ident: $2.str},
+		}
+	}
+	| CONTINUE ';' {
+		$$.n = &ASTContinue{}
+	}
+	| BREAK ';' {
+		$$.n = &ASTBreak{}
+	}
 	| RETURN ';' { $$.n = &ASTReturn{} }
 	| RETURN expression ';' { $$.n = &ASTReturn{returnVal: $2.n} }
 	;

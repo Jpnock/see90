@@ -2,6 +2,7 @@ package c90
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -112,6 +113,34 @@ func (t *ASTAssignment) Describe(indent int) string {
 	return fmt.Sprintf("%s%s %s %s", genIndent(indent), t.ident, t.operator, t.value.Describe(0))
 }
 
+type ASTArgumentExpressionList []*ASTAssignmentExpression
+
+func (t ASTArgumentExpressionList) Describe(indent int) string {
+	var sb strings.Builder
+	for i, decl := range t {
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(decl.Describe(indent))
+	}
+	return sb.String()
+}
+
+type ASTAssignmentExpression struct {
+	// either value can be supplied
+	assignment *ASTAssignment
+}
+
+func (t *ASTAssignmentExpression) Describe(indent int) string {
+	if t == nil {
+		return ""
+	}
+	if t.assignment != nil {
+		return t.Describe(indent)
+	}
+	panic("oh no")
+}
+
 type ASTDecl struct {
 	ident   string
 	typ     *ASTType
@@ -190,23 +219,10 @@ func (t *ASTFunction) Describe(indent int) string {
 		panic("ASTFunction is nil")
 	}
 
+	indentStr := genIndent(indent)
 	if t.body == nil {
-		return fmt.Sprintf("function (%s) -> %s {}", t.name, t.typ.Describe(0))
+		return fmt.Sprintf("%sfunction (%s) -> %s {}", indentStr, t.name, t.typ.Describe(0))
 	} else {
-		return fmt.Sprintf("function (%s) -> %s {\n%s\n}", t.name, t.typ.Describe(0), t.body.Describe(indent+4))
+		return fmt.Sprintf("%sfunction (%s) -> %s {\n%s\n}", indentStr, t.name, t.typ.Describe(0), t.body.Describe(indent+4))
 	}
-}
-
-type ASTReturn struct {
-	returnVal Node
-}
-
-func (t *ASTReturn) Describe(indent int) string {
-	if t == nil {
-		return ""
-	}
-	if t.returnVal == nil {
-		return fmt.Sprintf("%sreturn (void)", genIndent(indent))
-	}
-	return fmt.Sprintf("%sreturn %s", genIndent(indent), t.returnVal.Describe(0))
 }
