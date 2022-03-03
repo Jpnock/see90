@@ -220,7 +220,19 @@ func (t *ASTIdentifier) Describe(indent int) string {
 	return fmt.Sprintf("%s%s", genIndent(indent), t.ident)
 }
 
-func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
+	if t == nil {
+		return
+	}
+	// TODO: work out how to differentiate between identifiers that don't need
+	// loading into v0 (e.g. just the line `a`).
+
+	variable := m.VariableScopes.Peek()[t.ident]
+	if variable == nil {
+		panic(fmt.Errorf("identifier `%s` is not in scope", t.ident))
+	}
+	write(w, "sw $v0, %d($fp)", -variable.fpOffset)
+}
 
 type ASTFunctionCall struct {
 	// primary_expresion node
@@ -454,6 +466,22 @@ func (t *ASTFunction) Describe(indent int) string {
 
 func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.NewFunction()
+
+	for i, param := range t.decl.parameters.li {
+		stackOffset := 8 * (i + 1)
+
+		// TODO: at the moment, we're assuming all function parameters are
+		// identifiers, however this is clearly not the case when you have array
+		// parameters.
+		directDecl, ok := param.declarator.(*ASTDirectDeclarator)
+		if ok {
+			m.VariableScopes[len(m.VariableScopes)-1][directDecl.identifier.ident] = &Variable{
+				fpOffset: -stackOffset,
+				decl:     nil,
+			}
+		}
+	}
+
 	t.decl.GenerateMIPS(w, m)
 	t.body.GenerateMIPS(w, m)
 }
@@ -474,8 +502,12 @@ func (t ASTParameterList) Describe(indent int) string {
 	return sb.String()
 }
 
-// TODO: investigate at later date
-func (t ASTParameterList) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t ASTParameterList) GenerateMIPS(w io.Writer, m *MIPS) {
+	// TODO: this function is incomplete
+	// for _, decl := range t.li {
+	// 	decl.GenerateMIPS(w, m)
+	// }
+}
 
 type ASTParameterDeclaration struct {
 	specifier  Node
@@ -492,8 +524,10 @@ func (t ASTParameterDeclaration) Describe(indent int) string {
 	return sb.String()
 }
 
-// TODO: investigate at later date
-func (t *ASTParameterDeclaration) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTParameterDeclaration) GenerateMIPS(w io.Writer, m *MIPS) {
+	// TODO: this function is incomplete
+	//t.declarator.GenerateMIPS(w, m)
+}
 
 type ASTDirectDeclarator struct {
 	identifier *ASTIdentifier
@@ -520,5 +554,16 @@ func (t ASTDirectDeclarator) Describe(indent int) string {
 	return sb.String()
 }
 
-// TODO: investigate at later date
-func (t ASTDirectDeclarator) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t ASTDirectDeclarator) GenerateMIPS(w io.Writer, m *MIPS) {
+	// TODO: fix for other fields
+
+	// TODO: remove the function name from the variable scope
+	// ident, ok :=
+	// if ok {
+	// 	m.VariableScopes[len(m.VariableScopes)-1][t.identifier] =
+	// }
+
+	// if t.parameters != nil {
+	// 	t.parameters.GenerateMIPS(w, m)
+	// }
+}
