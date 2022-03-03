@@ -1,10 +1,97 @@
 package c90
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
+	"strconv"
 	"strings"
 )
+
+type Scope map[string]*Variable
+
+type ScopeStack []Scope
+
+func (s *ScopeStack) Push(v Scope) {
+	*s = append(*s, v)
+}
+
+func (s *ScopeStack) Pop() Scope {
+	lastElem := (*s)[len(*s)-1]
+	if len(*s) > 0 {
+		*s = (*s)[:len(*s)-1]
+	}
+	return lastElem
+}
+
+func (s *ScopeStack) Peek() Scope {
+	if len(*s) == 0 {
+		return nil
+	}
+	return (*s)[len(*s)-1]
+}
+
+type MIPS struct {
+	VariableScopes ScopeStack
+	Context        *MIPSContext
+
+	uniqueLabelNumber uint
+}
+
+func NewMIPS() *MIPS {
+	return &MIPS{
+		VariableScopes:    nil,
+		Context:           &MIPSContext{},
+		uniqueLabelNumber: 0,
+	}
+}
+
+// CreateUniqueLabel takes the provided name and returns a unique label, using
+// this name.
+func (m *MIPS) CreateUniqueLabel(name string) string {
+	label := fmt.Sprintf("__label__%s__%d__", name, m.uniqueLabelNumber)
+	m.uniqueLabelNumber++
+	return label
+}
+
+type Variable struct {
+	// fpOffset is the amount of subtract from fp to access the variable.
+	fpOffset int
+	decl     *ASTDecl
+}
+
+type MIPSContext struct {
+	CurrentStackFramePointerOffset int
+}
+
+// NewScopes adds a new scope to the stack and copies all of the previous
+// variables into it.
+func (m *MIPS) NewScope() {
+	// Create a new scope and copy the last scope into it
+	newScope := make(Scope)
+	top := m.VariableScopes.Peek()
+	for k, v := range top {
+		newScope[k] = v
+	}
+	m.VariableScopes.Push(newScope)
+}
+
+// NewFunction resets context variables relating to the current function being
+// generated.
+func (m *MIPS) NewFunction() {
+	const fp = 4
+	const sp = 4
+	const ra = 4
+	m.Context.CurrentStackFramePointerOffset = fp + sp + ra
+	m.NewScope()
+}
+
+func (m *MIPSContext) GetNewLocalOffset() int {
+	// TODO: change this size depending on the type of variable
+	m.CurrentStackFramePointerOffset += 8
+	return m.CurrentStackFramePointerOffset
+}
 
 func genIndent(indent int) string {
 	return strings.Repeat(" ", indent)
@@ -12,6 +99,7 @@ func genIndent(indent int) string {
 
 type Node interface {
 	Describe(indent int) string
+	GenerateMIPS(w io.Writer, m *MIPS)
 }
 
 type ASTTranslationUnit []Node
@@ -27,6 +115,12 @@ func (t ASTTranslationUnit) Describe(indent int) string {
 	return sb.String()
 }
 
+func (t ASTTranslationUnit) GenerateMIPS(w io.Writer, m *MIPS) {
+	for _, node := range t {
+		node.GenerateMIPS(w, m)
+	}
+}
+
 type ASTBrackets struct {
 	Node
 }
@@ -37,6 +131,10 @@ func (t ASTBrackets) Describe(indent int) string {
 	sb.WriteString(t.Node.Describe(0))
 	sb.WriteString(")")
 	return sb.String()
+}
+
+func (t ASTBrackets) GenerateMIPS(w io.Writer, m *MIPS) {
+	t.Node.GenerateMIPS(w, m)
 }
 
 type ASTDeclarationStatementLists struct {
@@ -56,6 +154,15 @@ func (t ASTDeclarationStatementLists) Describe(indent int) string {
 	return sb.String()
 }
 
+func (t ASTDeclarationStatementLists) GenerateMIPS(w io.Writer, m *MIPS) {
+	for _, node := range t.decls {
+		node.GenerateMIPS(w, m)
+	}
+	for _, node := range t.stmts {
+		node.GenerateMIPS(w, m)
+	}
+}
+
 type ASTStatementList []Node
 
 func (t ASTStatementList) Describe(indent int) string {
@@ -73,17 +180,26 @@ func (t ASTStatementList) Describe(indent int) string {
 	return sb.String()
 }
 
+func (t ASTStatementList) GenerateMIPS(w io.Writer, m *MIPS) {
+	for _, node := range t {
+		node.GenerateMIPS(w, m)
+	}
+}
+
 type ASTDeclaratorList []*ASTDecl
 
 func (t ASTDeclaratorList) Describe(indent int) string {
 	var sb strings.Builder
-	for i, decl := range t {
-		if i != 0 {
-			sb.WriteString("\n")
-		}
+	for _, decl := range t {
 		sb.WriteString(decl.Describe(indent))
 	}
 	return sb.String()
+}
+
+func (t ASTDeclaratorList) GenerateMIPS(w io.Writer, m *MIPS) {
+	for _, decl := range t {
+		decl.GenerateMIPS(w, m)
+	}
 }
 
 type ASTAssignmentOperator string
@@ -113,6 +229,8 @@ func (t *ASTIdentifier) Describe(indent int) string {
 	return fmt.Sprintf("%s%s", genIndent(indent), t.ident)
 }
 
+func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {}
+
 type ASTFunctionCall struct {
 	// primary_expresion node
 	function  Node
@@ -132,6 +250,8 @@ func (t *ASTFunctionCall) Describe(indent int) string {
 	}
 	return fmt.Sprintf("%s%s(%s)", genIndent(indent), t.function.Describe(0), sb.String())
 }
+
+func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 type ASTAssignment struct {
 	ident    string
@@ -154,6 +274,19 @@ func (t *ASTAssignment) Describe(indent int) string {
 	return fmt.Sprintf("%s%s %s %s", genIndent(indent), t.ident, t.operator, t.value.Describe(0))
 }
 
+// TODO: investigate at later date
+func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
+	// TODO: fix
+	t.value.GenerateMIPS(w, m)
+
+	if t.tmpAssign {
+		return
+	}
+
+	assignedVar := m.VariableScopes[len(m.VariableScopes)-1][t.ident]
+	write(w, "sw $v0, %d($fp)", -assignedVar.fpOffset)
+}
+
 type ASTArgumentExpressionList []*ASTAssignment
 
 func (t ASTArgumentExpressionList) Describe(indent int) string {
@@ -165,6 +298,12 @@ func (t ASTArgumentExpressionList) Describe(indent int) string {
 		sb.WriteString(decl.Describe(indent))
 	}
 	return sb.String()
+}
+
+func (t ASTArgumentExpressionList) GenerateMIPS(w io.Writer, m *MIPS) {
+	for _, decl := range t {
+		decl.GenerateMIPS(w, m)
+	}
 }
 
 type ASTDecl struct {
@@ -184,6 +323,16 @@ func (t *ASTDecl) Describe(indent int) string {
 	}
 }
 
+// TODO: investigate at later date
+func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
+	// TODO: handle global scope case where the decl is not on the stack
+	declVar := &Variable{
+		fpOffset: m.Context.GetNewLocalOffset(),
+		decl:     t,
+	}
+	m.VariableScopes[len(m.VariableScopes)-1][t.ident] = declVar
+}
+
 type ASTConstant struct {
 	value string
 }
@@ -193,6 +342,14 @@ func (t *ASTConstant) Describe(indent int) string {
 		return ""
 	}
 	return fmt.Sprintf("%s%s", genIndent(indent), t.value)
+}
+
+// TODO: investigate at later date
+func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
+	// TODO: fix this to support other types etc.
+
+	intValue, _ := strconv.Atoi(t.value)
+	write(w, "li $v0, %d", intValue)
 }
 
 type ASTStringLiteral struct {
@@ -206,6 +363,9 @@ func (t *ASTStringLiteral) Describe(indent int) string {
 	return fmt.Sprintf("%s%s", genIndent(indent), t.value)
 }
 
+// TODO: investigate at later date
+func (t *ASTStringLiteral) GenerateMIPS(w io.Writer, m *MIPS) {}
+
 type ASTNode struct {
 	inner Node
 }
@@ -217,11 +377,16 @@ func (t *ASTNode) Describe(indent int) string {
 	return t.inner.Describe(indent)
 }
 
+func (t *ASTNode) GenerateMIPS(w io.Writer, m *MIPS) {}
+
 type ASTPanic struct{}
 
 func (t ASTPanic) Describe(indent int) string {
 	return "[panic]"
 }
+
+// TODO: investigate at later date
+func (t ASTPanic) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 type ASTType struct {
 	typ string
@@ -234,6 +399,35 @@ func (t *ASTType) Describe(indent int) string {
 	return t.typ
 }
 
+// TODO: investigate at later date
+func (t *ASTType) GenerateMIPS(w io.Writer, m *MIPS) {}
+
+// new sp
+
+// new frame pointer <- return addr
+// arg 1 [fp + 4]
+// arg 2 [fp + 8]
+// arg 3 [fp + 0xC]
+// 0xfffe0000 <- sp
+
+// var2
+// var1
+// old fp
+// 0xffff0000 <- fp (return addr)
+// arg 1 [fp + 4]
+// arg 2 [fp + 8]
+// arg 3 [fp + 0xC]
+
+// // GenerateMips -> Function
+// // string = body.GenerateMips
+// // inspect the context
+// // fetch the last offset used
+// // subtract last offset + 12 (for ra and old fp, sp) from $sp at start of the function
+
+// push 3
+// push 2
+// push 1
+// call function
 type ASTFunction struct {
 	typ  *ASTType
 	decl *ASTDirectDeclarator
@@ -249,8 +443,28 @@ func (t *ASTFunction) Describe(indent int) string {
 	if t.body == nil {
 		return fmt.Sprintf("%sfunction (%s) -> %s {}", indentStr, t.decl.Describe(0), t.typ.Describe(0))
 	} else {
-		return fmt.Sprintf("%sfunction (%s) -> %s {\n%s\n}", indentStr, t.decl.Describe(0), t.typ.Describe(0), t.body.Describe(indent+4))
+		val := fmt.Sprintf("%sfunction (%s) -> %s {\n%s\n}\n", indentStr, t.decl.Describe(0), t.typ.Describe(0), t.body.Describe(indent+4))
+
+		buf := new(bytes.Buffer)
+		m := NewMIPS()
+		t.GenerateMIPS(buf, m)
+
+		for _, scope := range m.VariableScopes {
+			val += fmt.Sprintf("%snew scope!\n", indentStr)
+			for ident, variable := range scope {
+				val += fmt.Sprintf("%s%s: %v\n", indentStr, ident, *variable)
+			}
+		}
+
+		val += fmt.Sprintf("\n\n%s", buf.String())
+		return val
 	}
+}
+
+func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
+	m.NewFunction()
+	t.decl.GenerateMIPS(w, m)
+	t.body.GenerateMIPS(w, m)
 }
 
 type ASTParameterList struct {
@@ -269,6 +483,9 @@ func (t ASTParameterList) Describe(indent int) string {
 	return sb.String()
 }
 
+// TODO: investigate at later date
+func (t ASTParameterList) GenerateMIPS(w io.Writer, m *MIPS) {}
+
 type ASTParameterDeclaration struct {
 	specifier  Node
 	declarator Node
@@ -283,6 +500,9 @@ func (t ASTParameterDeclaration) Describe(indent int) string {
 	}
 	return sb.String()
 }
+
+// TODO: investigate at later date
+func (t *ASTParameterDeclaration) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 type ASTDirectDeclarator struct {
 	identifier *ASTIdentifier
@@ -308,3 +528,6 @@ func (t ASTDirectDeclarator) Describe(indent int) string {
 	}
 	return sb.String()
 }
+
+// TODO: investigate at later date
+func (t ASTDirectDeclarator) GenerateMIPS(w io.Writer, m *MIPS) {}

@@ -18,6 +18,8 @@ int main(int y, int z)
     d = 5 * 6;
 
     while (b > 5) {
+        int xyz = 5;
+        xyz--;
         b--;
         e--;
         h = e > 5;

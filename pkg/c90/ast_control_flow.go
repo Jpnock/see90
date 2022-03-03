@@ -2,6 +2,7 @@ package c90
 
 import (
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -27,6 +28,12 @@ func (t *ASTWhileLoop) Describe(indent int) string {
 	return sb.String()
 }
 
+func (t *ASTWhileLoop) GenerateMIPS(w io.Writer, m *MIPS) {
+	// TODO: fix this so it work
+	t.condition.GenerateMIPS(w, m)
+	t.body.GenerateMIPS(w, m)
+}
+
 type ASTDoWhileLoop struct {
 	condition Node
 	body      Node
@@ -46,6 +53,8 @@ func (t *ASTDoWhileLoop) Describe(indent int) string {
 	sb.WriteString(fmt.Sprintf("while (%s);", t.condition.Describe(0)))
 	return sb.String()
 }
+
+func (t *ASTDoWhileLoop) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 type ASTForLoop struct {
 	initialiser       Node
@@ -78,6 +87,8 @@ func (t *ASTForLoop) Describe(indent int) string {
 	return sb.String()
 }
 
+func (t *ASTForLoop) GenerateMIPS(w io.Writer, m *MIPS) {}
+
 type ASTIfStatement struct {
 	condition Node
 	body      Node
@@ -108,6 +119,8 @@ func (t *ASTIfStatement) Describe(indent int) string {
 	return sb.String()
 }
 
+func (t *ASTIfStatement) GenerateMIPS(w io.Writer, m *MIPS) {}
+
 type ASTReturn struct {
 	returnVal Node
 }
@@ -122,6 +135,8 @@ func (t *ASTReturn) Describe(indent int) string {
 	return fmt.Sprintf("%sreturn %s", genIndent(indent), t.returnVal.Describe(0))
 }
 
+func (t *ASTReturn) GenerateMIPS(w io.Writer, m *MIPS) {}
+
 type ASTContinue struct{}
 
 func (t *ASTContinue) Describe(indent int) string {
@@ -131,6 +146,8 @@ func (t *ASTContinue) Describe(indent int) string {
 	return fmt.Sprintf("%scontinue;", genIndent(indent))
 }
 
+func (t *ASTContinue) GenerateMIPS(w io.Writer, m *MIPS) {}
+
 type ASTBreak struct{}
 
 func (t *ASTBreak) Describe(indent int) string {
@@ -139,6 +156,9 @@ func (t *ASTBreak) Describe(indent int) string {
 	}
 	return fmt.Sprintf("%sbreak;", genIndent(indent))
 }
+
+// TODO: investigate at later date
+func (t *ASTBreak) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 type ASTGoto struct {
 	label *ASTIdentifier
@@ -150,6 +170,9 @@ func (t *ASTGoto) Describe(indent int) string {
 	}
 	return fmt.Sprintf("%sgoto :%s;", genIndent(indent), t.label.Describe(0))
 }
+
+// TODO: investigate at later date
+func (t *ASTGoto) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 type ASTLabeledStatement struct {
 	ident *ASTIdentifier
@@ -167,3 +190,6 @@ func (t *ASTLabeledStatement) Describe(indent int) string {
 	sb.WriteString(t.stmt.Describe(indent))
 	return sb.String()
 }
+
+// TODO: investigate at later date
+func (t *ASTLabeledStatement) GenerateMIPS(w io.Writer, m *MIPS) {}
