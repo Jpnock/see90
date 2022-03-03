@@ -29,9 +29,34 @@ func (t *ASTWhileLoop) Describe(indent int) string {
 }
 
 func (t *ASTWhileLoop) GenerateMIPS(w io.Writer, m *MIPS) {
-	// TODO: fix this so it work
+	conditionLabel := m.CreateUniqueLabel("while_condition")
+	bottomLabel := m.CreateUniqueLabel("while_bottom")
+
+	// Create a new variable scope
+	m.NewVariableScope()
+	defer m.VariableScopes.Pop()
+
+	// Create a new label scope
+	m.NewLabelScope(LabelScope{
+		ContinueLabel: &conditionLabel,
+		BreakLabel:    &bottomLabel,
+	})
+	defer m.LabelScopes.Pop()
+
+	// Condition
+	write(w, "%s:", conditionLabel)
 	t.condition.GenerateMIPS(w, m)
-	t.body.GenerateMIPS(w, m)
+	write(w, "beq $zero, $v0, %s", bottomLabel)
+
+	// Body
+	if t.body != nil {
+		t.body.GenerateMIPS(w, m)
+	}
+
+	write(w, "j %s", conditionLabel)
+
+	// Break to here
+	write(w, "%s:", bottomLabel)
 }
 
 type ASTDoWhileLoop struct {
@@ -54,7 +79,39 @@ func (t *ASTDoWhileLoop) Describe(indent int) string {
 	return sb.String()
 }
 
-func (t *ASTDoWhileLoop) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTDoWhileLoop) GenerateMIPS(w io.Writer, m *MIPS) {
+	bodyLabel := m.CreateUniqueLabel("do_while_body")
+	conditionLabel := m.CreateUniqueLabel("do_while_condition")
+	bottomLabel := m.CreateUniqueLabel("do_while_bottom")
+
+	// Create a new variable scope
+	m.NewVariableScope()
+	defer m.VariableScopes.Pop()
+
+	// Create a new label scope
+	m.NewLabelScope(LabelScope{
+		ContinueLabel: &conditionLabel,
+		BreakLabel:    &bottomLabel,
+	})
+	defer m.LabelScopes.Pop()
+
+	// Body
+	write(w, "%s:", bodyLabel)
+	if t.body != nil {
+		t.body.GenerateMIPS(w, m)
+	}
+
+	// Condition
+	write(w, "%s:", conditionLabel)
+	t.condition.GenerateMIPS(w, m)
+
+	write(w, "beq $zero, $v0, %s", bottomLabel)
+
+	write(w, "j %s", bodyLabel)
+
+	// Break to here
+	write(w, "%s:", bottomLabel)
+}
 
 type ASTForLoop struct {
 	initialiser       Node
@@ -87,7 +144,47 @@ func (t *ASTForLoop) Describe(indent int) string {
 	return sb.String()
 }
 
-func (t *ASTForLoop) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTForLoop) GenerateMIPS(w io.Writer, m *MIPS) {
+	bodyLabel := m.CreateUniqueLabel("for_body")
+	bottomLabel := m.CreateUniqueLabel("for_bottom")
+	postIterExprLabel := m.CreateUniqueLabel("for_post_iter_expr")
+
+	// Create a new variable scope
+	m.NewVariableScope()
+	defer m.VariableScopes.Pop()
+
+	// Create a new label scope
+	m.NewLabelScope(LabelScope{
+		ContinueLabel: &postIterExprLabel,
+		BreakLabel:    &bottomLabel,
+	})
+	defer m.LabelScopes.Pop()
+
+	// Init
+	t.initialiser.GenerateMIPS(w, m)
+	write(w, "j %s", bodyLabel)
+
+	/// Post Iter Expression (continue from here)
+	write(w, "%s:", postIterExprLabel)
+	if t.postIterationExpr != nil {
+		t.postIterationExpr.GenerateMIPS(w, m)
+	}
+
+	// Condition
+	write(w, "%s:", bodyLabel)
+	t.condition.GenerateMIPS(w, m)
+	write(w, "beq $zero, $v0, %s", bottomLabel)
+
+	// Body
+	if t.body != nil {
+		t.body.GenerateMIPS(w, m)
+	}
+
+	write(w, "j %s", postIterExprLabel)
+
+	// Break to here
+	write(w, "%s:", bottomLabel)
+}
 
 type ASTIfStatement struct {
 	condition Node
@@ -119,7 +216,31 @@ func (t *ASTIfStatement) Describe(indent int) string {
 	return sb.String()
 }
 
-func (t *ASTIfStatement) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTIfStatement) GenerateMIPS(w io.Writer, m *MIPS) {
+	failureLabel := m.CreateUniqueLabel("condition_fail")
+	finalLabel := m.CreateUniqueLabel("condition_final")
+
+	m.NewVariableScope()
+	defer m.VariableScopes.Pop()
+
+	// Condition
+	t.condition.GenerateMIPS(w, m)
+	write(w, "beq $zero, $v0, %s", failureLabel)
+
+	// After body, jump to end (to ignore the else clause)
+	if t.body != nil {
+		t.body.GenerateMIPS(w, m)
+	}
+	write(w, "j %s:", finalLabel)
+
+	// Else...
+	write(w, "%s:", failureLabel)
+	if t.elseBody != nil {
+		t.elseBody.GenerateMIPS(w, m)
+	}
+
+	write(w, "%s:", finalLabel)
+}
 
 type ASTReturn struct {
 	returnVal Node
@@ -135,7 +256,10 @@ func (t *ASTReturn) Describe(indent int) string {
 	return fmt.Sprintf("%sreturn %s", genIndent(indent), t.returnVal.Describe(0))
 }
 
-func (t *ASTReturn) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTReturn) GenerateMIPS(w io.Writer, m *MIPS) {
+	t.returnVal.GenerateMIPS(w, m)
+	write(w, "jr $ra")
+}
 
 type ASTContinue struct{}
 
@@ -146,7 +270,10 @@ func (t *ASTContinue) Describe(indent int) string {
 	return fmt.Sprintf("%scontinue;", genIndent(indent))
 }
 
-func (t *ASTContinue) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTContinue) GenerateMIPS(w io.Writer, m *MIPS) {
+	curLabelScope := m.LabelScopes.Peek()
+	write(w, "j %s", *curLabelScope.ContinueLabel)
+}
 
 type ASTBreak struct{}
 
@@ -157,8 +284,10 @@ func (t *ASTBreak) Describe(indent int) string {
 	return fmt.Sprintf("%sbreak;", genIndent(indent))
 }
 
-// TODO: investigate at later date
-func (t *ASTBreak) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTBreak) GenerateMIPS(w io.Writer, m *MIPS) {
+	curLabelScope := m.LabelScopes.Peek()
+	write(w, "j %s", *curLabelScope.BreakLabel)
+}
 
 type ASTGoto struct {
 	label *ASTIdentifier
@@ -192,4 +321,6 @@ func (t *ASTLabeledStatement) Describe(indent int) string {
 }
 
 // TODO: investigate at later date
-func (t *ASTLabeledStatement) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTLabeledStatement) GenerateMIPS(w io.Writer, m *MIPS) {
+	t.stmt.GenerateMIPS(w, m)
+}

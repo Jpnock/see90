@@ -9,32 +9,12 @@ import (
 	"strings"
 )
 
-type Scope map[string]*Variable
-
-type ScopeStack []Scope
-
-func (s *ScopeStack) Push(v Scope) {
-	*s = append(*s, v)
-}
-
-func (s *ScopeStack) Pop() Scope {
-	lastElem := (*s)[len(*s)-1]
-	if len(*s) > 0 {
-		*s = (*s)[:len(*s)-1]
-	}
-	return lastElem
-}
-
-func (s *ScopeStack) Peek() Scope {
-	if len(*s) == 0 {
-		return nil
-	}
-	return (*s)[len(*s)-1]
-}
+type Label string
 
 type MIPS struct {
-	VariableScopes ScopeStack
+	VariableScopes VariableScopeStack
 	Context        *MIPSContext
+	LabelScopes    LabelScopeStack
 
 	uniqueLabelNumber uint
 }
@@ -43,16 +23,17 @@ func NewMIPS() *MIPS {
 	return &MIPS{
 		VariableScopes:    nil,
 		Context:           &MIPSContext{},
+		LabelScopes:       nil,
 		uniqueLabelNumber: 0,
 	}
 }
 
 // CreateUniqueLabel takes the provided name and returns a unique label, using
 // this name.
-func (m *MIPS) CreateUniqueLabel(name string) string {
+func (m *MIPS) CreateUniqueLabel(name string) Label {
 	label := fmt.Sprintf("__label__%s__%d__", name, m.uniqueLabelNumber)
 	m.uniqueLabelNumber++
-	return label
+	return Label(label)
 }
 
 type Variable struct {
@@ -67,14 +48,21 @@ type MIPSContext struct {
 
 // NewScopes adds a new scope to the stack and copies all of the previous
 // variables into it.
-func (m *MIPS) NewScope() {
+func (m *MIPS) NewVariableScope() {
 	// Create a new scope and copy the last scope into it
-	newScope := make(Scope)
+	newScope := make(VariableScope)
 	top := m.VariableScopes.Peek()
 	for k, v := range top {
 		newScope[k] = v
 	}
 	m.VariableScopes.Push(newScope)
+}
+
+// NewLabelScope adds a new label scope to the stack and copies all of the
+// previous variables into it.
+func (m *MIPS) NewLabelScope(l LabelScope) {
+	// TODO: copy the last scope into it when we have other labels
+	m.LabelScopes.Push(l)
 }
 
 // NewFunction resets context variables relating to the current function being
@@ -84,7 +72,7 @@ func (m *MIPS) NewFunction() {
 	const sp = 4
 	const ra = 4
 	m.Context.CurrentStackFramePointerOffset = fp + sp + ra
-	m.NewScope()
+	m.NewVariableScope()
 }
 
 func (m *MIPSContext) GetNewLocalOffset() int {
@@ -190,7 +178,10 @@ type ASTDeclaratorList []*ASTDecl
 
 func (t ASTDeclaratorList) Describe(indent int) string {
 	var sb strings.Builder
-	for _, decl := range t {
+	for i, decl := range t {
+		if i != 0 {
+			sb.WriteString("\n")
+		}
 		sb.WriteString(decl.Describe(indent))
 	}
 	return sb.String()
