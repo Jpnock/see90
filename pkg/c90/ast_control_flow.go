@@ -145,6 +145,7 @@ func (t *ASTForLoop) Describe(indent int) string {
 }
 
 func (t *ASTForLoop) GenerateMIPS(w io.Writer, m *MIPS) {
+	conditionLabel := m.CreateUniqueLabel("for_condition")
 	bodyLabel := m.CreateUniqueLabel("for_body")
 	bottomLabel := m.CreateUniqueLabel("for_bottom")
 	postIterExprLabel := m.CreateUniqueLabel("for_post_iter_expr")
@@ -162,7 +163,7 @@ func (t *ASTForLoop) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	// Init
 	t.initialiser.GenerateMIPS(w, m)
-	write(w, "j %s", bodyLabel)
+	write(w, "j %s", conditionLabel)
 
 	/// Post Iter Expression (continue from here)
 	write(w, "%s:", postIterExprLabel)
@@ -171,11 +172,12 @@ func (t *ASTForLoop) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 
 	// Condition
-	write(w, "%s:", bodyLabel)
+	write(w, "%s:", conditionLabel)
 	t.condition.GenerateMIPS(w, m)
 	write(w, "beq $zero, $v0, %s", bottomLabel)
 
 	// Body
+	write(w, "%s:", bodyLabel)
 	if t.body != nil {
 		t.body.GenerateMIPS(w, m)
 	}
@@ -231,7 +233,7 @@ func (t *ASTIfStatement) GenerateMIPS(w io.Writer, m *MIPS) {
 	if t.body != nil {
 		t.body.GenerateMIPS(w, m)
 	}
-	write(w, "j %s:", finalLabel)
+	write(w, "j %s", finalLabel)
 
 	// Else...
 	write(w, "%s:", failureLabel)
