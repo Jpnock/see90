@@ -200,11 +200,17 @@ func (t *ASTExprPrefixUnary) Describe(indent int) string {
 
 func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	t.lvalue.GenerateMIPS(w, m)
+
+	// TODO: handle pointers etc
+	variableOffset := m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].fpOffset
+
 	switch t.typ {
 	case ASTExprPrefixUnaryTypeIncrement:
 		write(w, "addiu $v0, $v0, 1")
+		write(w, "sw $v0, %d($fp)", -variableOffset)
 	case ASTExprPrefixUnaryTypeDecrement:
 		write(w, "addiu $v0, $v0, -1")
+		write(w, "sw $v0, %d($fp)", -variableOffset)
 	default:
 		panic("unsupported ASTExprPrefixUnaryType")
 	}
@@ -229,4 +235,25 @@ func (t *ASTExprSuffixUnary) Describe(indent int) string {
 	return fmt.Sprintf("%s%s%s", genIndent(indent), t.lvalue.Describe(0), t.typ)
 }
 
-func (t *ASTExprSuffixUnary) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTExprSuffixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
+	// TODO: fix this so it does assignment before increment
+	t.lvalue.GenerateMIPS(w, m)
+
+	// TODO: handle pointers etc
+	variableOffset := m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].fpOffset
+
+	switch t.typ {
+	case ASTExprSuffixUnaryTypeIncrement:
+		// The returned value should not be incremented, only the variable.
+		write(w, "addiu $v0, $v0, 1")
+		write(w, "sw $v0, %d($fp)", -variableOffset)
+		write(w, "addiu $v0, $v0, -1")
+	case ASTExprSuffixUnaryTypeDecrement:
+		// The returned value should not be decremented, only the variable.
+		write(w, "addiu $v0, $v0, -1")
+		write(w, "sw $v0, %d($fp)", -variableOffset)
+		write(w, "addiu $v0, $v0, 1")
+	default:
+		panic("unsupported ASTExprPrefixUnaryType")
+	}
+}
