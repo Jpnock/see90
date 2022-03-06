@@ -231,7 +231,7 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 	if variable == nil {
 		panic(fmt.Errorf("identifier `%s` is not in scope", t.ident))
 	}
-	write(w, "sw $v0, %d($fp)", -variable.fpOffset)
+	write(w, "lw $v0, %d($fp)", -variable.fpOffset)
 }
 
 type ASTFunctionCall struct {
