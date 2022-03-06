@@ -1,8 +1,12 @@
+int empty_func() {}
+
+empty_func_2() {}
+
 int my_func(int zz) {
     return zz;
 }
 
-int main(int y, int z)
+int f(int y, int z)
 {
     int b = 4, e, g, h, f = 1, i = 2;
     int n, m;
@@ -65,6 +69,8 @@ int main(int y, int z)
         h++;
         ++h;
     }
+
+    return 5;
 
     if (h == 2) {} else {}
 
