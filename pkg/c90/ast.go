@@ -443,12 +443,18 @@ func (t *ASTFunction) Describe(indent int) string {
 	}
 
 	indentStr := genIndent(indent)
+
+	declDescribe := t.decl.Describe(0)
+	funcName := declDescribe[:strings.Index(declDescribe, "(")]
+
 	if t.body == nil {
-		return fmt.Sprintf("%sfunction (%s) -> %s {}", indentStr, t.decl.Describe(0), t.typ.Describe(0))
+		return fmt.Sprintf("%sfunction (%s) -> %s {}", indentStr, declDescribe, t.typ.Describe(0))
 	} else {
-		val := fmt.Sprintf("%sfunction (%s) -> %s {\n%s\n}\n", indentStr, t.decl.Describe(0), t.typ.Describe(0), t.body.Describe(indent+4))
+		val := fmt.Sprintf("%sfunction (%s) -> %s {\n%s\n}\n", indentStr, declDescribe, t.typ.Describe(0), t.body.Describe(indent+4))
 
 		buf := new(bytes.Buffer)
+		buf.WriteString(fmt.Sprintf("%s:\n", funcName))
+
 		m := NewMIPS()
 		t.GenerateMIPS(buf, m)
 
@@ -459,7 +465,7 @@ func (t *ASTFunction) Describe(indent int) string {
 			}
 		}
 
-		val += fmt.Sprintf("\n\n%s", buf.String())
+		fmt.Fprintf(os.Stdout, "\n\n%s", buf.String())
 		return val
 	}
 }
