@@ -23,6 +23,7 @@ func Parse(yylex yyLexer) int {
   str string
   typ *ASTType
   assignmentOperator ASTAssignmentOperator
+  unaryOperator ASTExprPrefixUnaryType
 }
 
 %token IDENTIFIER CONSTANT STRING_LITERAL SIZEOF
@@ -84,18 +85,20 @@ unary_expression
 	| DEC_OP unary_expression {
 		$$.n = &ASTExprPrefixUnary{typ: ASTExprPrefixUnaryTypeDecrement, lvalue: $2.n}
 	}
-	| unary_operator cast_expression
+	| unary_operator cast_expression {
+		$$.n = &ASTExprPrefixUnary{typ: $1.unaryOperator, lvalue: $2.n}
+	}
 	| SIZEOF unary_expression
 	| SIZEOF '(' type_name ')'
 	;
 
 unary_operator
-	: '&'
-	| '*'
-	| '+'
-	| '-'
-	| '~'
-	| '!'
+	: '&' { $$.unaryOperator = ASTExprPrefixUnaryTypeAddressOf }
+	| '*' { $$.unaryOperator = ASTExprPrefixUnaryTypeDereference }
+	| '+' { $$.unaryOperator = ASTExprPrefixUnaryTypePositive }
+	| '-' { $$.unaryOperator = ASTExprPrefixUnaryTypeNegative }
+	| '~' { $$.unaryOperator = ASTExprPrefixUnaryTypeNot }
+	| '!' { $$.unaryOperator = ASTExprPrefixUnaryTypeInvert }
 	;
 
 cast_expression
@@ -420,6 +423,7 @@ parameter_declaration
 	}
 	;
 
+// Old style K&R (not needed)
 identifier_list
 	: IDENTIFIER
 	| identifier_list ',' IDENTIFIER
@@ -450,7 +454,9 @@ direct_abstract_declarator
 
 initializer
 	: assignment_expression {$$.n = $1.n}
+	// TODO: for structs
 	| '{' initializer_list '}'
+	// TODO: for structs
 	| '{' initializer_list ',' '}'
 	;
 
