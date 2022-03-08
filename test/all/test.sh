@@ -2,6 +2,6 @@
 
 set -uo pipefail
 
-cd /mnt/test || exit 255
+cd /mnt/test || exit 123
 qemu-mips main
 echo "Returned: $?"
