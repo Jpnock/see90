@@ -354,6 +354,10 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 		decl:     t,
 	}
 	m.VariableScopes[len(m.VariableScopes)-1][t.ident] = declVar
+	if t.initVal != nil {
+		t.initVal.GenerateMIPS(w, m)
+		write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
+	}
 }
 
 type ASTConstant struct {
