@@ -90,6 +90,26 @@ type Node interface {
 	GenerateMIPS(w io.Writer, m *MIPS)
 }
 
+type ASTExpression []*ASTAssignment
+
+func (t ASTExpression) Describe(indent int) string {
+	var sb strings.Builder
+	sb.WriteString(genIndent(indent))
+	for i, node := range t {
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(node.Describe(0))
+	}
+	return sb.String()
+}
+
+func (t ASTExpression) GenerateMIPS(w io.Writer, m *MIPS) {
+	for _, assignment := range t {
+		assignment.GenerateMIPS(w, m)
+	}
+}
+
 type ASTTranslationUnit []Node
 
 func (t ASTTranslationUnit) Describe(indent int) string {
