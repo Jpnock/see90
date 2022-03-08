@@ -188,16 +188,21 @@ func (t *ASTForLoop) GenerateMIPS(w io.Writer, m *MIPS) {
 	write(w, "%s:", bottomLabel)
 }
 
+// ASTIfStatement also works for ternary statements, as long as we keep to the
+// convention that the last result is always put into v0.
 type ASTIfStatement struct {
 	condition Node
 	body      Node
 	elseBody  Node
+	ternary   bool
 }
 
 func (t *ASTIfStatement) Describe(indent int) string {
 	if t == nil {
 		return ""
 	}
+
+	// TODO: check ternary and print differently if true
 	var sb strings.Builder
 	indentStr := genIndent(indent)
 	sb.WriteString(fmt.Sprintf("%sif (%s) {", indentStr, t.condition.Describe(0)))

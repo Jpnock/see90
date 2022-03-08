@@ -163,7 +163,14 @@ logical_or_expression
 
 conditional_expression
 	: logical_or_expression {$$.n = $1.n}
-	| logical_or_expression '?' expression ':' conditional_expression {panic(":c found ternary")}
+	| logical_or_expression '?' expression ':' conditional_expression {
+		$$.n = &ASTIfStatement{
+			condition: $1.n,
+			body: $3.n,
+			elseBody: $5.n,
+			ternary: true,
+		}
+	}
 	;
 
 assignment_expression
@@ -190,12 +197,18 @@ assignment_operator
 	;
 
 expression
-	: assignment_expression {$$.n = $1.n}
-	| expression ',' assignment_expression
+	: assignment_expression {
+		$$.n = ASTExpression{$1.n.(*ASTAssignment)}
+	}
+	| expression ',' assignment_expression {
+		li := $1.n.(ASTExpression)
+		li = append(li, $3.n.(*ASTAssignment))
+		$$.n = li
+	}
 	;
 
 constant_expression
-	: conditional_expression
+	: conditional_expression {$$.n = $1.n}
 	;
 
 declaration
