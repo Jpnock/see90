@@ -73,7 +73,7 @@ int f(int y, int z)
         ++h;
     }
 
-    return e;
+    return ~e;
 
     if (h == 2) {} else {}
 

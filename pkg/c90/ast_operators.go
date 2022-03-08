@@ -217,6 +217,17 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	case ASTExprPrefixUnaryTypeDecrement:
 		write(w, "addiu $v0, $v0, -1")
 		write(w, "sw $v0, %d($fp)", -variableOffset)
+	case ASTExprPrefixUnaryTypeInvert:
+		write(w, "sltu $v0, $v0, 1")
+	case ASTExprPrefixUnaryTypeNegative:
+		write(w, "sub $v0, $zero, $v0")
+	case ASTExprPrefixUnaryTypeNot:
+		write(w, "nor $v0, $zero, $v0")
+	case ASTExprPrefixUnaryTypeAddressOf:
+		write(w, "addiu $v0, $fp, %d", -variableOffset)
+	case ASTExprPrefixUnaryTypeDereference:
+		write(w, "lw $v0, 0($v0)")
+	case ASTExprPrefixUnaryTypePositive:
 	default:
 		panic("unsupported ASTExprPrefixUnaryType")
 	}
