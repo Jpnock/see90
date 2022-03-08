@@ -299,7 +299,7 @@ func (t *ASTAssignment) Describe(indent int) string {
 
 // TODO: investigate at later date
 func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
-	// TODO: fix
+	// Load value into $v0
 	t.value.GenerateMIPS(w, m)
 
 	if t.tmpAssign {
@@ -307,6 +307,43 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 
 	assignedVar := m.VariableScopes[len(m.VariableScopes)-1][t.ident]
+
+	if t.operator == ASTAssignmentOperatorEquals {
+		// Special case as this does not require a load
+		write(w, "sw $v0, %d($fp)", -assignedVar.fpOffset)
+		return
+	}
+
+	write(w, "lw $t0, %d($fp)", -assignedVar.fpOffset)
+
+	switch t.operator {
+	case ASTAssignmentOperatorMulEquals:
+		write(w, "mul $t0, $v0")
+		write(w, "mflo $v0")
+	case ASTAssignmentOperatorDivEquals:
+		write(w, "div $t0, $v0")
+		write(w, "mflo $v0")
+	case ASTAssignmentOperatorModEquals:
+		write(w, "div $t0, $v0")
+		write(w, "mfhi $v0")
+	case ASTAssignmentOperatorAddEquals:
+		write(w, "add $v0, $t0, $v0")
+	case ASTAssignmentOperatorSubEquals:
+		write(w, "sub $v0, $t0, $v0")
+	case ASTAssignmentOperatorLeftEquals:
+		write(w, "sllv $v0, $t0, $v0")
+	case ASTAssignmentOperatorRightEquals:
+		write(w, "srlv $v0, $t0, $v0")
+	case ASTAssignmentOperatorAndEquals:
+		write(w, "and $v0, $t0, $v0")
+	case ASTAssignmentOperatorXorEquals:
+		write(w, "xor $v0, $t0, $v0")
+	case ASTAssignmentOperatorOrEquals:
+		write(w, "or $v0, $t0, $v0")
+	default:
+		panic("unhanlded ASTAssignmentOperator")
+	}
+
 	write(w, "sw $v0, %d($fp)", -assignedVar.fpOffset)
 }
 
