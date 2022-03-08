@@ -220,7 +220,7 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	case ASTExprPrefixUnaryTypeInvert:
 		write(w, "sltu $v0, $v0, 1")
 	case ASTExprPrefixUnaryTypeNegative:
-		write(w, "sub $v0, $zero, $v0")
+		write(w, "subu $v0, $zero, $v0")
 	case ASTExprPrefixUnaryTypeNot:
 		write(w, "nor $v0, $zero, $v0")
 	case ASTExprPrefixUnaryTypeAddressOf:
