@@ -182,8 +182,14 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 type ASTExprPrefixUnaryType string
 
 const (
-	ASTExprPrefixUnaryTypeIncrement ASTExprPrefixUnaryType = "++"
-	ASTExprPrefixUnaryTypeDecrement ASTExprPrefixUnaryType = "--"
+	ASTExprPrefixUnaryTypeIncrement   ASTExprPrefixUnaryType = "++"
+	ASTExprPrefixUnaryTypeDecrement   ASTExprPrefixUnaryType = "--"
+	ASTExprPrefixUnaryTypeAddressOf   ASTExprPrefixUnaryType = "&"
+	ASTExprPrefixUnaryTypeDereference ASTExprPrefixUnaryType = "*"
+	ASTExprPrefixUnaryTypePositive    ASTExprPrefixUnaryType = "+"
+	ASTExprPrefixUnaryTypeNegative    ASTExprPrefixUnaryType = "-"
+	ASTExprPrefixUnaryTypeNot         ASTExprPrefixUnaryType = "~"
+	ASTExprPrefixUnaryTypeInvert      ASTExprPrefixUnaryType = "!"
 )
 
 type ASTExprPrefixUnary struct {
