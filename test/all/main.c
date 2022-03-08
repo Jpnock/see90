@@ -8,7 +8,8 @@ int my_func(int zz) {
 
 int f(int y, int z)
 {
-    int b = 4, e, g, h, f = 1, i = 2;
+    int b = 4, g, h = 5, f = 1, i = 2;
+    int e = 7;
     int n, m;
     int o;
     float c = 2.0f;
@@ -20,6 +21,8 @@ int f(int y, int z)
     d = d - 4;
     d -= 8;
     d = 5 * 6;
+    d = (d == 30) ? ((d > 40) ? 5 : 4) : 3;
+
 
     while (b > 5) {
         int xyz = 5;
@@ -70,13 +73,14 @@ int f(int y, int z)
         ++h;
     }
 
-    return 5;
+    return e;
 
     if (h == 2) {} else {}
 
     if (h + h) if (b + b) h++; else b--;
 
     d = f = h += 4;
+    f += 4, h += 1;
     d = 5 >> 667 + 9786 - ((5 + 97679579) * 2 / 1 << 234) % 234;
 
     ++d;
