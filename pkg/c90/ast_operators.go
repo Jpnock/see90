@@ -99,6 +99,7 @@ func (t *ASTExprBinary) generateLogical(w io.Writer, m *MIPS) {
 }
 
 func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
+	var typ = VarTypeInteger
 	switch t.typ {
 	case ASTExprBinaryTypeLogicalAnd, ASTExprBinaryTypeLogicalOr:
 		// Special case where we need to potentially short circuit, so we cannot
@@ -125,37 +126,176 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Pop the LHS result into $t0
 	stackPop(w, "$t0")
 
+	// TODO:fix register labels when decided for floats and doubles and fix mips
 	switch t.typ {
 	case ASTExprBinaryTypeMul:
-		write(w, "mul $v0, $t0, $t1")
+		switch typ {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+			write(w, "mult $t0, $t1")
+			write(w, "mflo $v0")
+		case VarTypeUnsigned:
+			write(w, "multu $t0, $t1")
+			write(w, "mflo $v0")
+		case VarTypeLong:
+			write(w, "dmult $f1, $f2")
+			write(w, "mflo $f0")
+		case VarTypeFloat:
+			write(w, "mul.s $f1, $f2")
+			write(w, "mflo $f0")
+		case VarTypeDouble:
+			write(w, "mul.d $f1, $f2")
+			write(w, "mflo $f0")
+		case VarTypeTypeName, VarTypeChar, VarTypeVoid:
+			panic("not yet implemented code gen on binary expressions for these types")
+		}
+
 	case ASTExprBinaryTypeDiv:
-		write(w, "div $t0, $t1")
+		switch typ {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+			write(w, "div $t0, $t1")
+			write(w, "mflo $v0")
+		case VarTypeUnsigned:
+			write(w, "divu $t0, $t1")
+			write(w, "mflo $v0")
+		case VarTypeLong:
+			write(w, "ddiv $f1, $f2")
+			write(w, "mflo $f0")
+		case VarTypeFloat:
+			write(w, "div.s $f1, $f2")
+			write(w, "mflo $f0")
+		case VarTypeDouble:
+			write(w, "div.d $f1, $f2")
+			write(w, "mflo $f0")
+		case VarTypeTypeName, VarTypeChar, VarTypeVoid:
+			panic("not yet implemented code gen on binary expressions for these types")
+		}
+
 	case ASTExprBinaryTypeMod:
 		// TODO: check operation of modulo for negative values
-		write(w, "div $t0, $t1")
-		write(w, "mfhi $v0")
+		switch typ {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+			write(w, "div $t0, $t1")
+			write(w, "mfhi $v0")
+		case VarTypeUnsigned:
+			write(w, "divu $t0, $t1")
+			write(w, "mfhi $v0")
+		case VarTypeLong:
+			write(w, "ddiv $f1, $f2")
+			write(w, "mfhi $f0")
+		case VarTypeFloat:
+			write(w, "div.s $f1, $f2")
+			write(w, "mfhi $f0")
+		case VarTypeDouble:
+			write(w, "div.d $f1, $f2")
+			write(w, "mfhi $f0")
+		case VarTypeTypeName, VarTypeChar, VarTypeVoid:
+			panic("not yet implemented code gen on binary expressions for these types")
+		}
+
 	case ASTExprBinaryTypeAdd:
-		write(w, "add $v0, $t0, $t1")
+		switch typ {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+			write(w, "add $v0, $t0, $t1")
+		case VarTypeUnsigned:
+			write(w, "addu $v0, $t0, $t1")
+		case VarTypeLong:
+			write(w, "dadd $f0, $f1, $f2")
+		case VarTypeFloat:
+			write(w, "add.s $f0, $f1, $f2")
+		case VarTypeDouble:
+			write(w, "add.d $f0, $f1, $f2")
+		case VarTypeTypeName, VarTypeChar, VarTypeVoid:
+			panic("not yet implemented code gen on binary expressions for these types")
+		}
+
 	case ASTExprBinaryTypeSub:
-		write(w, "sub $v0, $t0, $t1")
+		switch typ {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+			write(w, "sub $v0, $t0, $t1")
+		case VarTypeUnsigned:
+			write(w, "subu $v0, $t0, $t1")
+		case VarTypeLong:
+			write(w, "dsub $f0, $f1, $f2")
+		case VarTypeFloat:
+			write(w, "sub.s $f0, $f1, $f2")
+		case VarTypeDouble:
+			write(w, "sub.d $f0, $f1, $f2")
+		case VarTypeTypeName, VarTypeChar, VarTypeVoid:
+			panic("not yet implemented code gen on binary expressions for these types")
+		}
+
 	case ASTExprBinaryTypeLeftShift:
-		write(w, "sllv $v0, $t0, $t1")
+		switch typ {
+		case VarTypeInteger, VarTypeSigned, VarTypeUnsigned, VarTypeShort:
+			write(w, "sllv $v0, $t0, $t1")
+		case VarTypeLong:
+			write(w, "dsllv $f0, $f1, $f2")
+		case VarTypeFloat, VarTypeDouble:
+			panic("not allowed operation on type float")
+		case VarTypeTypeName, VarTypeChar, VarTypeVoid:
+			panic("not yet implemented code gen on binary expressions for these types")
+		}
+
 	case ASTExprBinaryTypeRightShift:
-		write(w, "srlv  $v0, $t0, $t1")
+		switch typ {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeUnsigned:
+			write(w, "srlv  $v0, $t0, $t1")
+		case VarTypeLong:
+			write(w, "dsrlv $f0, $f1, $f2")
+		case VarTypeFloat, VarTypeDouble:
+			panic("not allowed operation on type float")
+		case VarTypeTypeName, VarTypeChar, VarTypeVoid:
+			panic("not yet implemented code gen on binary expressions for these types")
+		}
+
 	case ASTExprBinaryTypeLessThan:
-		write(w, "slt $v0, $t0, $t1")
+		switch typ {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+			write(w, "slt $v0, $t0, $t1")
+		case VarTypeUnsigned:
+			write(w, "sltu $v0, $t0, $t1")
+		case VarTypeTypeName, VarTypeChar, VarTypeVoid, VarTypeDouble, VarTypeFloat, VarTypeLong:
+			panic("not yet implemented code gen on binary expressions for these types")
+		}
+
 	case ASTExprBinaryTypeGreaterThan:
-		write(w, "slt $v0, $t1, $t0")
+		switch typ {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+			write(w, "slt $v0, $t1, $t0")
+		case VarTypeUnsigned:
+			write(w, "sltu $v0, $t1, $t0")
+		case VarTypeTypeName, VarTypeChar, VarTypeVoid, VarTypeDouble, VarTypeFloat, VarTypeLong:
+			panic("not yet implemented code gen on binary expressions for these types")
+		}
+
 	case ASTExprBinaryTypeLessOrEqual:
-		// Inverting (left > right) gives (left <= right)
-		write(w, "slt $v0, $t1, $t0")
-		// Toggle bit (for inversion of condition)
-		write(w, "xori $v0, $v0, 1")
+		switch typ {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+			// Inverting (left > right) gives (left <= right)
+			write(w, "slt $v0, $t1, $t0")
+			// Toggle bit (for inversion of condition)
+			write(w, "xori $v0, $v0, 1")
+		case VarTypeUnsigned:
+			write(w, "sltu $v0, $t1, $t0")
+			write(w, "xori $v0, $v0, 1")
+		case VarTypeTypeName, VarTypeChar, VarTypeVoid, VarTypeDouble, VarTypeFloat, VarTypeLong:
+			panic("not yet implemented code gen on binary expressions for these types")
+		}
+
 	case ASTExprBinaryTypeGreaterOrEqual:
-		// Inverting (left < right) gives (left >= right)
-		write(w, "slt $v0, $t0, $t1")
-		// Toggle bit (for inversion of condition)
-		write(w, "xori $v0, $v0, 1")
+		switch typ {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+			// Inverting (left < right) gives (left >= right)
+			write(w, "slt $v0, $t0, $t1")
+			// Toggle bit (for inversion of condition)
+			write(w, "xori $v0, $v0, 1")
+		case VarTypeUnsigned:
+			write(w, "sltu $v0, $t0, $t1")
+			write(w, "xori $v0, $v0, 1")
+		case VarTypeTypeName, VarTypeChar, VarTypeVoid, VarTypeDouble, VarTypeFloat, VarTypeLong:
+			panic("not yet implemented code gen on binary expressions for these types")
+		}
+
 	case ASTExprBinaryTypeEquality:
 		// XOR left with right -> if equal, the result is 0
 		write(w, "xor $v0, $t0, $t1")

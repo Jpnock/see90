@@ -36,9 +36,25 @@ func (m *MIPS) CreateUniqueLabel(name string) Label {
 	return Label(label)
 }
 
+type VarType string
+
+const (
+	VarTypeInteger  VarType = "int"
+	VarTypeLong     VarType = "long"
+	VarTypeShort    VarType = "short"
+	VarTypeFloat    VarType = "float"
+	VarTypeDouble   VarType = "double"
+	VarTypeChar     VarType = "char"
+	VarTypeVoid     VarType = "void"
+	VarTypeSigned   VarType = "signed"
+	VarTypeUnsigned VarType = "unsigned"
+	VarTypeTypeName VarType = "typename"
+)
+
 type Variable struct {
 	// fpOffset is the amount of subtract from fp to access the variable.
 	fpOffset int
+	typ      ASTType
 	decl     *ASTDecl
 }
 
@@ -389,6 +405,7 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	declVar := &Variable{
 		fpOffset: m.Context.GetNewLocalOffset(),
 		decl:     t,
+		typ:      *t.typ,
 	}
 	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
 	if t.initVal != nil {
@@ -453,14 +470,15 @@ func (t ASTPanic) Describe(indent int) string {
 func (t ASTPanic) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 type ASTType struct {
-	typ string
+	typ     VarType
+	typName string
 }
 
 func (t *ASTType) Describe(indent int) string {
 	if t == nil {
 		panic("ASTType is nil")
 	}
-	return t.typ
+	return string(t.typ)
 }
 
 // TODO: investigate at later date
