@@ -1358,49 +1358,49 @@ yydefault:
 //line pkg/c90/grammar.y:264
 		{
 			// https://stackoverflow.com/a/697531
-			yyVAL.typ = &ASTType{typ: "short"}
+			yyVAL.typ = &ASTType{typ: VarTypeShort}
 		}
 	case 95:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:268
 		{
-			yyVAL.typ = &ASTType{typ: "int"}
+			yyVAL.typ = &ASTType{typ: VarTypeInteger}
 		}
 	case 96:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:269
 		{
-			yyVAL.typ = &ASTType{typ: "long"}
+			yyVAL.typ = &ASTType{typ: VarTypeLong}
 		}
 	case 97:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:270
 		{
-			yyVAL.typ = &ASTType{typ: "float"}
+			yyVAL.typ = &ASTType{typ: VarTypeFloat}
 		}
 	case 98:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:271
 		{
-			yyVAL.typ = &ASTType{typ: "double"}
+			yyVAL.typ = &ASTType{typ: VarTypeDouble}
 		}
 	case 99:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:272
 		{
-			yyVAL.typ = &ASTType{typ: "signed"}
+			yyVAL.typ = &ASTType{typ: VarTypeSigned}
 		}
 	case 100:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:273
 		{
-			yyVAL.typ = &ASTType{typ: "unsigned"}
+			yyVAL.typ = &ASTType{typ: VarTypeUnsigned}
 		}
 	case 103:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:276
 		{
-			yyVAL.typ = &ASTType{typ: yyDollar[1].str}
+			yyVAL.typ = &ASTType{typ: VarTypeTypeName, typName: yyDollar[1].str}
 		}
 	case 130:
 		yyDollar = yyS[yypt-2 : yypt+1]
