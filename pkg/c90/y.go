@@ -1345,13 +1345,13 @@ yydefault:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:262
 		{
-			yyVAL.typ = &ASTType{typ: "void"}
+			yyVAL.typ = &ASTType{typ: VarTypeVoid}
 		}
 	case 93:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:263
 		{
-			yyVAL.typ = &ASTType{typ: "char"}
+			yyVAL.typ = &ASTType{typ: VarTypeChar}
 		}
 	case 94:
 		yyDollar = yyS[yypt-1 : yypt+1]

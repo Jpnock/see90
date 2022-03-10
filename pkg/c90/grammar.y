@@ -259,8 +259,8 @@ storage_class_specifier
 	;
 
 type_specifier
-	: VOID { $$.typ = &ASTType{typ: "void"} }
-	| CHAR { $$.typ = &ASTType{typ: "char"} }
+	: VOID { $$.typ = &ASTType{typ: VarTypeVoid} }
+	| CHAR { $$.typ = &ASTType{typ: VarTypeChar} }
 	| SHORT { 
 		// https://stackoverflow.com/a/697531
 		$$.typ = &ASTType{typ: VarTypeShort}
