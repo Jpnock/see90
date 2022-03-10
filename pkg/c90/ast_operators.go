@@ -130,15 +130,12 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 	switch t.typ {
 	case ASTExprBinaryTypeMul:
 		switch typ {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong:
 			write(w, "mult $t0, $t1")
 			write(w, "mflo $v0")
 		case VarTypeUnsigned:
 			write(w, "multu $t0, $t1")
 			write(w, "mflo $v0")
-		case VarTypeLong:
-			write(w, "dmult $f1, $f2")
-			write(w, "mflo $f0")
 		case VarTypeFloat:
 			write(w, "mul.s $f1, $f2")
 			write(w, "mflo $f0")
@@ -151,15 +148,12 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	case ASTExprBinaryTypeDiv:
 		switch typ {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong:
 			write(w, "div $t0, $t1")
 			write(w, "mflo $v0")
 		case VarTypeUnsigned:
 			write(w, "divu $t0, $t1")
 			write(w, "mflo $v0")
-		case VarTypeLong:
-			write(w, "ddiv $f1, $f2")
-			write(w, "mflo $f0")
 		case VarTypeFloat:
 			write(w, "div.s $f1, $f2")
 			write(w, "mflo $f0")
@@ -173,15 +167,12 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 	case ASTExprBinaryTypeMod:
 		// TODO: check operation of modulo for negative values
 		switch typ {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong:
 			write(w, "div $t0, $t1")
 			write(w, "mfhi $v0")
 		case VarTypeUnsigned:
 			write(w, "divu $t0, $t1")
 			write(w, "mfhi $v0")
-		case VarTypeLong:
-			write(w, "ddiv $f1, $f2")
-			write(w, "mfhi $f0")
 		case VarTypeFloat:
 			write(w, "div.s $f1, $f2")
 			write(w, "mfhi $f0")
@@ -194,12 +185,10 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	case ASTExprBinaryTypeAdd:
 		switch typ {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong:
 			write(w, "add $v0, $t0, $t1")
 		case VarTypeUnsigned:
 			write(w, "addu $v0, $t0, $t1")
-		case VarTypeLong:
-			write(w, "dadd $f0, $f1, $f2")
 		case VarTypeFloat:
 			write(w, "add.s $f0, $f1, $f2")
 		case VarTypeDouble:
@@ -210,12 +199,10 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	case ASTExprBinaryTypeSub:
 		switch typ {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong:
 			write(w, "sub $v0, $t0, $t1")
 		case VarTypeUnsigned:
 			write(w, "subu $v0, $t0, $t1")
-		case VarTypeLong:
-			write(w, "dsub $f0, $f1, $f2")
 		case VarTypeFloat:
 			write(w, "sub.s $f0, $f1, $f2")
 		case VarTypeDouble:
@@ -226,10 +213,8 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	case ASTExprBinaryTypeLeftShift:
 		switch typ {
-		case VarTypeInteger, VarTypeSigned, VarTypeUnsigned, VarTypeShort:
+		case VarTypeInteger, VarTypeSigned, VarTypeUnsigned, VarTypeShort, VarTypeLong:
 			write(w, "sllv $v0, $t0, $t1")
-		case VarTypeLong:
-			write(w, "dsllv $f0, $f1, $f2")
 		case VarTypeFloat, VarTypeDouble:
 			panic("not allowed operation on type float")
 		case VarTypeTypeName, VarTypeChar, VarTypeVoid:
@@ -238,10 +223,8 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	case ASTExprBinaryTypeRightShift:
 		switch typ {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeUnsigned:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeUnsigned, VarTypeLong:
 			write(w, "srlv  $v0, $t0, $t1")
-		case VarTypeLong:
-			write(w, "dsrlv $f0, $f1, $f2")
 		case VarTypeFloat, VarTypeDouble:
 			panic("not allowed operation on type float")
 		case VarTypeTypeName, VarTypeChar, VarTypeVoid:
