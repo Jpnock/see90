@@ -1,6 +1,7 @@
 package c90
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
@@ -247,6 +248,114 @@ func (t *ASTIfStatement) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 
 	write(w, "%s:", finalLabel)
+}
+
+type ASTSwitchCase struct {
+	// caseVal is a constexpr
+	caseVal     Node
+	body        Node
+	defaultCase bool
+}
+
+func (t *ASTSwitchCase) Describe(indent int) string {
+	if t == nil {
+		return ""
+	}
+
+	var sb strings.Builder
+	indentStr := genIndent(indent)
+	if !t.defaultCase {
+		sb.WriteString(fmt.Sprintf("%scase %s:\n", indentStr, t.caseVal.Describe(0)))
+	} else {
+		sb.WriteString(fmt.Sprintf("%sdefault:\n", indentStr))
+	}
+	if t.body != nil {
+		sb.WriteString(t.body.Describe(indent + 4))
+	}
+
+	sb.WriteString(fmt.Sprintf("\n%s}", indentStr))
+
+	return sb.String()
+}
+
+func (t *ASTSwitchCase) GenerateMIPS(w io.Writer, m *MIPS) {
+	// Put label onto label scope stack
+	val := &CaseLabel{
+		switchCase: t,
+		label:      m.CreateUniqueLabel("switch_case"),
+	}
+	idx := len(m.CaseLabelScopes) - 1
+	m.CaseLabelScopes[idx].SwitchCase = append(m.CaseLabelScopes[idx].SwitchCase, val)
+
+	write(w, "%s:", val.label)
+	if t.body != nil {
+		t.body.GenerateMIPS(w, m)
+	}
+}
+
+type ASTSwitchStatement struct {
+	switchOn Node
+	body     Node
+}
+
+func (t *ASTSwitchStatement) Describe(indent int) string {
+	if t == nil {
+		return ""
+	}
+
+	var sb strings.Builder
+	indentStr := genIndent(indent)
+	sb.WriteString(fmt.Sprintf("%sswitch (%s) {", indentStr, t.switchOn.Describe(0)))
+	if t.body != nil {
+		sb.WriteString("\n")
+		sb.WriteString(t.body.Describe(indent + 4))
+		sb.WriteString(fmt.Sprintf("\n%s}", indentStr))
+	} else {
+		sb.WriteString("}")
+	}
+
+	return sb.String()
+}
+
+func (t *ASTSwitchStatement) GenerateMIPS(w io.Writer, m *MIPS) {
+	bottomLabel := m.NewSwitchStatement()
+	defer m.EndSwitchStatement()
+
+	// Store the body for later. We need to execute GenerateMIPS in order to
+	// explore the case labels and push them to the CaseLabelStack.
+	bodyBuf := new(bytes.Buffer)
+	t.body.GenerateMIPS(bodyBuf, m)
+
+	// Put value to switch on into $t2
+	t.switchOn.GenerateMIPS(w, m)
+	write(w, "addu $t2, $zero, $v0")
+
+	var defaultCase *CaseLabel
+	switchCases := m.CaseLabelScopes.Peek().SwitchCase
+	for _, c := range switchCases {
+		if c.switchCase.defaultCase {
+			// Find the default case for later.
+			defaultCase = c
+			continue
+		}
+
+		// Get condition into $v0
+		c.switchCase.caseVal.GenerateMIPS(w, m)
+
+		// Jump to the label if the condition matches
+		write(w, "beq $v0, $t2, %s", c.label)
+	}
+
+	if defaultCase != nil {
+		// Jump to the default case if no condition was matched.
+		write(w, "j %s", defaultCase.label)
+	} else {
+		// Jump to the end of the block if no default is present.
+		write(w, "j %s", bottomLabel)
+	}
+
+	w.Write(bodyBuf.Bytes())
+	write(w, "%s:", bottomLabel)
 }
 
 type ASTReturn struct {

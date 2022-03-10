@@ -12,9 +12,10 @@ import (
 type Label string
 
 type MIPS struct {
-	VariableScopes VariableScopeStack
-	Context        *MIPSContext
-	LabelScopes    LabelScopeStack
+	VariableScopes  VariableScopeStack
+	Context         *MIPSContext
+	LabelScopes     LabelScopeStack
+	CaseLabelScopes CaseLabelScopeStack
 
 	uniqueLabelNumber uint
 }
@@ -63,6 +64,22 @@ func (m *MIPS) NewVariableScope() {
 func (m *MIPS) NewLabelScope(l LabelScope) {
 	// TODO: copy the last scope into it when we have other labels
 	m.LabelScopes.Push(l)
+}
+
+// NewCaseLabelScope adds a new case label scope to the stack. Unlike other
+// scopes, it does not copy in the previous values on the stack.
+func (m *MIPS) NewSwitchStatement() (bottomLabel Label) {
+	bottomLabel = m.CreateUniqueLabel("switch_bottom")
+	m.CaseLabelScopes.Push(CaseLabelScope{})
+	m.LabelScopes.Push(LabelScope{BreakLabel: &bottomLabel})
+	m.NewVariableScope()
+	return
+}
+
+func (m *MIPS) EndSwitchStatement() {
+	m.VariableScopes.Pop()
+	m.LabelScopes.Pop()
+	m.CaseLabelScopes.Pop()
 }
 
 // NewFunction resets context variables relating to the current function being

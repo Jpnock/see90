@@ -55,3 +55,36 @@ func (s *LabelScopeStack) Peek() *LabelScope {
 	labelScope := (*s)[len(*s)-1]
 	return &labelScope
 }
+
+type CaseLabel struct {
+	switchCase *ASTSwitchCase
+	label      Label
+}
+
+type CaseLabelScope struct {
+	SwitchCase []*CaseLabel
+}
+
+type CaseLabelScopeStack []CaseLabelScope
+
+func (s *CaseLabelScopeStack) Push(v CaseLabelScope) {
+	*s = append(*s, v)
+}
+
+func (s *CaseLabelScopeStack) Pop() *CaseLabelScope {
+	if len(*s) == 0 {
+		return nil
+	}
+
+	labelScope := (*s)[len(*s)-1]
+	*s = (*s)[:len(*s)-1]
+	return &labelScope
+}
+
+func (s *CaseLabelScopeStack) Peek() *CaseLabelScope {
+	if len(*s) == 0 {
+		return nil
+	}
+	labelScope := (*s)[len(*s)-1]
+	return &labelScope
+}

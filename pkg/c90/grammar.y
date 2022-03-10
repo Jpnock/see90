@@ -470,10 +470,10 @@ initializer_list
 
 statement
 	: labeled_statement { $$.n = $1.n }
-	| compound_statement
-	| expression_statement
-	| selection_statement
-	| iteration_statement
+	| compound_statement { $$.n = $1.n }
+	| expression_statement { $$.n = $1.n }
+	| selection_statement { $$.n = $1.n }
+	| iteration_statement { $$.n = $1.n }
 	| jump_statement { $$.n = $1.n }
 	;
 
@@ -484,10 +484,23 @@ labeled_statement
 			stmt: $3.n,
 		}
 	}
-	| CASE constant_expression ':' statement
-	| DEFAULT ':' statement
+	| CASE constant_expression ':' statement {
+		$$.n = &ASTSwitchCase{
+			caseVal: $2.n,
+			body: $4.n,
+			defaultCase: false,
+		}
+	}
+	| DEFAULT ':' statement {
+		$$.n = &ASTSwitchCase{
+			caseVal: nil,
+			body: $3.n,
+			defaultCase: true,
+		}
+	}
 	;
 
+// TODO: create a new scope for these
 compound_statement
 	: '{' '}'
 	| '{' statement_list '}' { $$.n = $2.n }
@@ -515,7 +528,7 @@ statement_list
 
 expression_statement
 	: ';'
-	| expression ';'
+	| expression ';' { $$.n = $1.n }
 	;
 
 selection_statement
@@ -533,7 +546,12 @@ selection_statement
 			elseBody: $7.n,
 		}
 	}
-	| SWITCH '(' expression ')' statement
+	| SWITCH '(' expression ')' statement {
+		$$.n = &ASTSwitchStatement{
+			switchOn: $3.n,
+			body: $5.n,
+		}
+	}
 	;
 
 iteration_statement
