@@ -15,6 +15,8 @@ int f(int y, int z)
     float c = 2.0f;
     int d = 3;
 
+    int *abcd = &d;
+
     int;
 
     d = 5 + 6;

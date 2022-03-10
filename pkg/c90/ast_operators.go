@@ -207,14 +207,13 @@ func (t *ASTExprPrefixUnary) Describe(indent int) string {
 func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	t.lvalue.GenerateMIPS(w, m)
 
-	// TODO: handle pointers etc
-	variableOffset := m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].fpOffset
-
 	switch t.typ {
 	case ASTExprPrefixUnaryTypeIncrement:
+		variableOffset := m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].fpOffset
 		write(w, "addiu $v0, $v0, 1")
 		write(w, "sw $v0, %d($fp)", -variableOffset)
 	case ASTExprPrefixUnaryTypeDecrement:
+		variableOffset := m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].fpOffset
 		write(w, "addiu $v0, $v0, -1")
 		write(w, "sw $v0, %d($fp)", -variableOffset)
 	case ASTExprPrefixUnaryTypeInvert:
@@ -224,6 +223,7 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	case ASTExprPrefixUnaryTypeNot:
 		write(w, "nor $v0, $zero, $v0")
 	case ASTExprPrefixUnaryTypeAddressOf:
+		variableOffset := m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].fpOffset
 		write(w, "addiu $v0, $fp, %d", -variableOffset)
 	case ASTExprPrefixUnaryTypeDereference:
 		write(w, "lw $v0, 0($v0)")
