@@ -127,7 +127,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 	t.lhs.GenerateMIPS(w, m)
 
 	switch varTyp {
-	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
 		// Store the LHS on the stack
 		stackPush(w, "$v0")
 
@@ -153,7 +153,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 
 		stackPop(w, "$f1")
 	default:
-		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 	}
 
 	switch t.typ {
@@ -162,7 +162,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong:
 			write(w, "mult $t0, $t1")
 			write(w, "mflo $v0")
-		case VarTypeUnsigned:
+		case VarTypeUnsigned, VarTypeChar:
 			write(w, "multu $t0, $t1")
 			write(w, "mflo $v0")
 		case VarTypeFloat:
@@ -170,7 +170,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 		case VarTypeDouble:
 			write(w, "mul.d $f0, $f1, $f2")
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
 
 	case ASTExprBinaryTypeDiv:
@@ -178,7 +178,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong:
 			write(w, "div $t0, $t1")
 			write(w, "mflo $v0")
-		case VarTypeUnsigned:
+		case VarTypeUnsigned, VarTypeChar:
 			write(w, "divu $t0, $t1")
 			write(w, "mflo $v0")
 		case VarTypeFloat:
@@ -186,7 +186,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 		case VarTypeDouble:
 			write(w, "div.d $f0, $f1, $f2")
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
 
 	case ASTExprBinaryTypeMod:
@@ -195,64 +195,64 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong:
 			write(w, "div $t0, $t1")
 			write(w, "mfhi $v0")
-		case VarTypeUnsigned:
+		case VarTypeUnsigned, VarTypeChar:
 			write(w, "divu $t0, $t1")
 			write(w, "mfhi $v0")
 		case VarTypeFloat, VarTypeDouble:
 			panic("not allowed operation on type float")
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
 
 	case ASTExprBinaryTypeAdd:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
 			write(w, "addu $v0, $t0, $t1")
 		case VarTypeFloat:
 			write(w, "add.s $f0, $f1, $f2")
 		case VarTypeDouble:
 			write(w, "add.d $f0, $f1, $f2")
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
 
 	case ASTExprBinaryTypeSub:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
 			write(w, "subu $v0, $t0, $t1")
 		case VarTypeFloat:
 			write(w, "sub.s $f0, $f1, $f2")
 		case VarTypeDouble:
 			write(w, "sub.d $f0, $f1, $f2")
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
 
 	case ASTExprBinaryTypeLeftShift:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeUnsigned, VarTypeShort, VarTypeLong:
+		case VarTypeInteger, VarTypeSigned, VarTypeUnsigned, VarTypeChar, VarTypeShort, VarTypeLong:
 			write(w, "sllv $v0, $t0, $t1")
 		case VarTypeFloat, VarTypeDouble:
 			panic("not allowed operation on type float")
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
 
 	case ASTExprBinaryTypeRightShift:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeUnsigned, VarTypeLong:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeUnsigned, VarTypeChar, VarTypeLong:
 			write(w, "srlv  $v0, $t0, $t1")
 		case VarTypeFloat, VarTypeDouble:
 			panic("not allowed operation on type float")
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
 
-	case ASTExprBinaryTypeLessThan:
+	case ASTExprBinaryTypeLessThan, ASTExprBinaryTypeGreaterOrEqual:
 		switch varTyp {
 		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong:
 			write(w, "slt $v0, $t0, $t1")
-		case VarTypeUnsigned:
+		case VarTypeUnsigned, VarTypeChar:
 			write(w, "sltu $v0, $t0, $t1")
 		case VarTypeFloat:
 			write(w, "c.lt.s $f1, $f2")
@@ -261,14 +261,18 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 			write(w, "c.lt.d $f1, $f2")
 			branchOnCondition(w, m)
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+		}
+		if t.typ == ASTExprBinaryTypeGreaterOrEqual {
+			// Invert the condition (greater than 0) => not equal
+			write(w, "xori $v0, $v0, 1")
 		}
 
-	case ASTExprBinaryTypeGreaterThan:
+	case ASTExprBinaryTypeGreaterThan, ASTExprBinaryTypeLessOrEqual:
 		switch varTyp {
 		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong:
 			write(w, "slt $v0, $t1, $t0")
-		case VarTypeUnsigned:
+		case VarTypeUnsigned, VarTypeChar:
 			write(w, "sltu $v0, $t1, $t0")
 		case VarTypeFloat:
 			write(w, "c.lt.s $f2, $f1")
@@ -277,50 +281,16 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 			write(w, "c.lt.d $f2, $f1")
 			branchOnCondition(w, m)
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+		}
+		if t.typ == ASTExprBinaryTypeLessOrEqual {
+			// Invert the condition (greater than 0) => not equal
+			write(w, "xori $v0, $v0, 1")
 		}
 
-	case ASTExprBinaryTypeLessOrEqual:
+	case ASTExprBinaryTypeEquality, ASTExprBinaryTypeNotEquality:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong:
-			// Inverting (left > right) gives (left <= right)
-			write(w, "slt $v0, $t1, $t0")
-		case VarTypeUnsigned:
-			write(w, "sltu $v0, $t1, $t0")
-		case VarTypeFloat:
-			write(w, "c.lt.s $f2, $f1")
-			branchOnCondition(w, m)
-		case VarTypeDouble:
-			write(w, "c.lt.d $f2, $f1")
-			branchOnCondition(w, m)
-		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
-		}
-		// Toggle bit (for inversion of condition)
-		write(w, "xori $v0, $v0, 1")
-
-	case ASTExprBinaryTypeGreaterOrEqual:
-		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong:
-			// Inverting (left < right) gives (left >= right)
-			write(w, "slt $v0, $t0, $t1")
-		case VarTypeUnsigned:
-			write(w, "sltu $v0, $t0, $t1")
-		case VarTypeFloat:
-			write(w, "c.lt.s $f1, $f2")
-			branchOnCondition(w, m)
-		case VarTypeDouble:
-			write(w, "c.lt.d $f1, $f2")
-			branchOnCondition(w, m)
-		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
-		}
-		// Toggle bit (for inversion of condition)
-		write(w, "xori $v0, $v0, 1")
-
-	case ASTExprBinaryTypeEquality:
-		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
 			// XOR left with right -> if equal, the result is 0
 			write(w, "xor $v0, $t0, $t1")
 			// Check (unsigned) whether the integer is less than 1 (i.e. equal to 0)
@@ -332,56 +302,41 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 			write(w, "c.eq.d $f1, $f2")
 			branchOnCondition(w, m)
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
-
-	case ASTExprBinaryTypeNotEquality:
-		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
-			// XOR left with right -> if equal, the result is 0
-			write(w, "xor $v0, $t0, $t1")
-			// Check (unsigned) whether the integer is less than 1 (i.e. equal to 0)
-			write(w, "sltiu $v0, $v0, 1")
-		case VarTypeFloat:
-			write(w, "c.eq.s $f1, $f2")
-			branchOnCondition(w, m)
-		case VarTypeDouble:
-			write(w, "c.eq.d $f1, $f2")
-			branchOnCondition(w, m)
-		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+		if t.typ == ASTExprBinaryTypeNotEquality {
+			// Invert the condition (greater than 0) => not equal
+			write(w, "xori $v0, $v0, 1")
 		}
-		// Invert the condition (greater than 0) => not equal
-		write(w, "xori $v0, $v0, 1")
 
 	case ASTExprBinaryTypeBitwiseAnd:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
 			write(w, "AND $v0, $t0, $t1")
 		case VarTypeFloat, VarTypeDouble:
 			panic("not allowed operation on type float")
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
 
 	case ASTExprBinaryTypeXor:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
 			write(w, "XOR $v0, $t0, $t1")
 		case VarTypeFloat, VarTypeDouble:
 			panic("not allowed operation on type float")
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
 
 	case ASTExprBinaryTypeBitwiseOr:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
 			write(w, "OR $v0, $t0, $t1")
 		case VarTypeFloat, VarTypeDouble:
 			panic("not allowed operation on type float")
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
 
 	default:
@@ -415,12 +370,24 @@ func (t *ASTExprPrefixUnary) Describe(indent int) string {
 }
 
 func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
+	var varTyp = VarTypeInteger
+
 	t.lvalue.GenerateMIPS(w, m)
 
 	switch t.typ {
 	case ASTExprPrefixUnaryTypeIncrement:
-		write(w, "addiu $v0, $v0, 1")
-		write(w, "sw $v0, 0($v1)")
+		switch varTyp {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
+			write(w, "addiu $v0, $v0, 1")
+			write(w, "sw $v0, 0($v1)")
+		case VarTypeFloat:
+			write(w, "add.s $f0, $f1, $f2")
+		case VarTypeDouble:
+			write(w, "add.d $f0, $f1, $f2")
+		default:
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+		}
+
 	case ASTExprPrefixUnaryTypeDecrement:
 		write(w, "addiu $v0, $v0, -1")
 		write(w, "sw $v0, 0($v1)")
