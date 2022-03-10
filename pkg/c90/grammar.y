@@ -246,8 +246,8 @@ init_declarator_list
 	;
 
 init_declarator
-	: declarator { $$.n = &ASTDecl{ident: $1.str} }
-	| declarator '=' initializer { $$.n = &ASTDecl{ident: $1.str, initVal: $3.n} }
+	: declarator { $$.n = &ASTDecl{decl: $1.n.(*ASTDirectDeclarator)} }
+	| declarator '=' initializer { $$.n = &ASTDecl{decl: $1.n.(*ASTDirectDeclarator), initVal: $3.n} }
 	;
 
 storage_class_specifier
@@ -336,12 +336,15 @@ type_qualifier
 	;
 
 declarator
-	: pointer direct_declarator
+	: pointer direct_declarator {
+		$2.n.(*ASTDirectDeclarator).isPointer = true
+		$$.n = $2.n
+	}
 	| direct_declarator { $$.n = $1.n }
 	;
 
 direct_declarator
-	: IDENTIFIER	{ 
+	: IDENTIFIER	{
 		$$.n = &ASTDirectDeclarator{
 			identifier: &ASTIdentifier{
 				ident: $1.str,

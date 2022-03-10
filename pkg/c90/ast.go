@@ -367,7 +367,7 @@ func (t ASTArgumentExpressionList) GenerateMIPS(w io.Writer, m *MIPS) {
 }
 
 type ASTDecl struct {
-	ident   string
+	decl    *ASTDirectDeclarator
 	typ     *ASTType
 	initVal Node
 }
@@ -377,9 +377,9 @@ func (t *ASTDecl) Describe(indent int) string {
 		return ""
 	}
 	if t.initVal == nil {
-		return fmt.Sprintf("%s%s : %s", genIndent(indent), t.ident, t.typ.Describe(0))
+		return fmt.Sprintf("%s%s : %s", genIndent(indent), t.decl.Describe(0), t.typ.Describe(0))
 	} else {
-		return fmt.Sprintf("%s%s = %s : %s", genIndent(indent), t.ident, t.initVal.Describe(0), t.typ.Describe(0))
+		return fmt.Sprintf("%s%s = %s : %s", genIndent(indent), t.decl.Describe(0), t.initVal.Describe(0), t.typ.Describe(0))
 	}
 }
 
@@ -390,7 +390,7 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 		fpOffset: m.Context.GetNewLocalOffset(),
 		decl:     t,
 	}
-	m.VariableScopes[len(m.VariableScopes)-1][t.ident] = declVar
+	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
 	if t.initVal != nil {
 		t.initVal.GenerateMIPS(w, m)
 		write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
@@ -599,6 +599,8 @@ func (t *ASTParameterDeclaration) GenerateMIPS(w io.Writer, m *MIPS) {
 type ASTDirectDeclarator struct {
 	identifier *ASTIdentifier
 	decl       *ASTDirectDeclarator
+
+	isPointer bool
 
 	// parameters is nil if it's not a function, else
 	// it has zero or more parameters.
