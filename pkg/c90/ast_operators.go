@@ -202,12 +202,8 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 		case VarTypeUnsigned:
 			write(w, "divu $t0, $t1")
 			write(w, "mfhi $v0")
-		case VarTypeFloat:
-			write(w, "div.s $f1, $f2")
-			write(w, "mfhi $f0")
-		case VarTypeDouble:
-			write(w, "div.d $f1, $f2")
-			write(w, "mfhi $f0")
+		case VarTypeFloat, VarTypeDouble:
+			panic("not allowed operation on type float")
 		default:
 			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
 		}
