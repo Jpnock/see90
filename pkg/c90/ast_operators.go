@@ -166,13 +166,11 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 			write(w, "multu $t0, $t1")
 			write(w, "mflo $v0")
 		case VarTypeFloat:
-			write(w, "mul.s $f1, $f2")
-			write(w, "mflo $f0")
+			write(w, "mul.s $f0, $f1, $f2")
 		case VarTypeDouble:
-			write(w, "mul.d $f1, $f2")
-			write(w, "mflo $f0")
-		case VarTypeTypeName, VarTypeChar, VarTypeVoid:
-			panic("not yet implemented code gen on binary expressions for these types")
+			write(w, "mul.d $f0, $f1, $f2")
+		default:
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
 		}
 
 	case ASTExprBinaryTypeDiv:
@@ -184,11 +182,9 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 			write(w, "divu $t0, $t1")
 			write(w, "mflo $v0")
 		case VarTypeFloat:
-			write(w, "div.s $f1, $f2")
-			write(w, "mflo $f0")
+			write(w, "div.s $f0, $f1, $f2")
 		case VarTypeDouble:
-			write(w, "div.d $f1, $f2")
-			write(w, "mflo $f0")
+			write(w, "div.d $f0, $f1, $f2")
 		default:
 			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeChar, VarTypeVoid")
 		}
