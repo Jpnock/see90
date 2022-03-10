@@ -65,6 +65,20 @@ func stackPop(w io.Writer, reg string) {
 	write(w, "addiu $sp, $sp, 8")
 }
 
+func branchOnCondition(w io.Writer, m *MIPS) {
+	trueLabel := m.CreateUniqueLabel("condtion_true")
+	finalLabel := m.CreateUniqueLabel("logical_final")
+	write(w, "bc1t %s", trueLabel)
+
+	write(w, "addiu $v0, $zero, 0")
+	write(w, "j %s", finalLabel)
+
+	write(w, "%s:", trueLabel)
+	write(w, "addiu $v0, $zero, 1")
+
+	write(w, "%s:", finalLabel)
+}
+
 func (t *ASTExprBinary) generateLogical(w io.Writer, m *MIPS) {
 	// Generate LHS -> result in $v0
 	t.lhs.GenerateMIPS(w, m)
