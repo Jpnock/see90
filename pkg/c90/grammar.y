@@ -181,7 +181,7 @@ assignment_expression
 		$$.n = &ASTAssignment{value: $1.n, tmpAssign: true} 
 	}
 	| unary_expression assignment_operator assignment_expression { 
-		$$.n = &ASTAssignment{ident: $1.str, operator: $2.assignmentOperator, value: $3.n} 
+		$$.n = &ASTAssignment{lval: $1.n, operator: $2.assignmentOperator, value: $3.n} 
 	}
 	;
 

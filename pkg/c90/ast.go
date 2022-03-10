@@ -75,6 +75,10 @@ func (m *MIPS) NewFunction() {
 	m.NewVariableScope()
 }
 
+func (m *MIPS) EndFunction() {
+	m.VariableScopes.Pop()
+}
+
 func (m *MIPSContext) GetNewLocalOffset() int {
 	// TODO: change this size depending on the type of variable
 	m.CurrentStackFramePointerOffset += 8
@@ -247,11 +251,18 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 	// TODO: work out how to differentiate between identifiers that don't need
 	// loading into v0 (e.g. just the line `a`).
 
+	// TODO: handle global variables
+
 	variable := m.VariableScopes.Peek()[t.ident]
 	if variable == nil {
 		panic(fmt.Errorf("identifier `%s` is not in scope", t.ident))
 	}
+
+	// Put the value of the variable into $v0
 	write(w, "lw $v0, %d($fp)", -variable.fpOffset)
+
+	// Put the address of the variable into $v1
+	write(w, "addiu $v1, $fp, %d", -variable.fpOffset)
 }
 
 type ASTFunctionCall struct {
@@ -277,7 +288,7 @@ func (t *ASTFunctionCall) Describe(indent int) string {
 func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 type ASTAssignment struct {
-	ident    string
+	lval     Node
 	operator ASTAssignmentOperator
 	value    Node
 
@@ -294,7 +305,7 @@ func (t *ASTAssignment) Describe(indent int) string {
 	if t.tmpAssign {
 		return fmt.Sprintf("%s%s", genIndent(indent), t.value.Describe(0))
 	}
-	return fmt.Sprintf("%s%s %s %s", genIndent(indent), t.ident, t.operator, t.value.Describe(0))
+	return fmt.Sprintf("%s%s %s %s", genIndent(indent), t.lval.Describe(0), t.operator, t.value.Describe(0))
 }
 
 // TODO: investigate at later date
@@ -306,15 +317,17 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 		return
 	}
 
-	assignedVar := m.VariableScopes[len(m.VariableScopes)-1][t.ident]
+	stackPush(w, "$v0")
+	t.lval.GenerateMIPS(w, m)
+	stackPop(w, "$v0")
 
 	if t.operator == ASTAssignmentOperatorEquals {
 		// Special case as this does not require a load
-		write(w, "sw $v0, %d($fp)", -assignedVar.fpOffset)
+		write(w, "sw $v0, 0($v1)")
 		return
 	}
 
-	write(w, "lw $t0, %d($fp)", -assignedVar.fpOffset)
+	write(w, "lw $t0, 0($v1)")
 
 	switch t.operator {
 	case ASTAssignmentOperatorMulEquals:
@@ -344,7 +357,7 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 		panic("unhanlded ASTAssignmentOperator")
 	}
 
-	write(w, "sw $v0, %d($fp)", -assignedVar.fpOffset)
+	write(w, "sw $v0, 0($v1)")
 }
 
 type ASTArgumentExpressionList []*ASTAssignment
@@ -533,6 +546,7 @@ func (t *ASTFunction) Describe(indent int) string {
 
 func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.NewFunction()
+	defer m.EndFunction()
 
 	for i, param := range t.decl.parameters.li {
 		stackOffset := 8 * (i + 1)

@@ -209,13 +209,11 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	switch t.typ {
 	case ASTExprPrefixUnaryTypeIncrement:
-		variableOffset := m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].fpOffset
 		write(w, "addiu $v0, $v0, 1")
-		write(w, "sw $v0, %d($fp)", -variableOffset)
+		write(w, "sw $v0, 0($v1)")
 	case ASTExprPrefixUnaryTypeDecrement:
-		variableOffset := m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].fpOffset
 		write(w, "addiu $v0, $v0, -1")
-		write(w, "sw $v0, %d($fp)", -variableOffset)
+		write(w, "sw $v0, 0($v1)")
 	case ASTExprPrefixUnaryTypeInvert:
 		write(w, "sltu $v0, $v0, 1")
 	case ASTExprPrefixUnaryTypeNegative:
@@ -223,9 +221,9 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	case ASTExprPrefixUnaryTypeNot:
 		write(w, "nor $v0, $zero, $v0")
 	case ASTExprPrefixUnaryTypeAddressOf:
-		variableOffset := m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].fpOffset
-		write(w, "addiu $v0, $fp, %d", -variableOffset)
+		write(w, "addu $v0, $zero, $v1")
 	case ASTExprPrefixUnaryTypeDereference:
+		write(w, "addu $v1, $v0, $zero")
 		write(w, "lw $v0, 0($v0)")
 	case ASTExprPrefixUnaryTypePositive:
 	default:
@@ -256,19 +254,18 @@ func (t *ASTExprSuffixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	// TODO: fix this so it does assignment before increment
 	t.lvalue.GenerateMIPS(w, m)
 
-	// TODO: handle pointers etc
-	variableOffset := m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].fpOffset
+	// TODO: handle global variables
 
 	switch t.typ {
 	case ASTExprSuffixUnaryTypeIncrement:
 		// The returned value should not be incremented, only the variable.
 		write(w, "addiu $v0, $v0, 1")
-		write(w, "sw $v0, %d($fp)", -variableOffset)
+		write(w, "sw $v0, 0($v1)")
 		write(w, "addiu $v0, $v0, -1")
 	case ASTExprSuffixUnaryTypeDecrement:
 		// The returned value should not be decremented, only the variable.
 		write(w, "addiu $v0, $v0, -1")
-		write(w, "sw $v0, %d($fp)", -variableOffset)
+		write(w, "sw $v0, 0($v1)")
 		write(w, "addiu $v0, $v0, 1")
 	default:
 		panic("unsupported ASTExprPrefixUnaryType")
