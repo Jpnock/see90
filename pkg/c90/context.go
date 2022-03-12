@@ -8,6 +8,7 @@ type Variable struct {
 	// fpOffset is the amount of subtract from fp to access the variable.
 	fpOffset int
 	decl     *ASTDecl
+	typ      ASTType
 }
 
 type MIPSContext struct {
