@@ -319,7 +319,17 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
 	if t.initVal != nil {
 		t.initVal.GenerateMIPS(w, m)
-		write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
+
+		if _, ok := t.initVal.(*ASTConstant); ok {
+			constant := t.initVal.(*ASTConstant).value
+			if constant[0] == '\'' {
+				write(w, "sb $v0, %d($fp)", -declVar.fpOffset)
+			}
+			write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
+		} else {
+			write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
+		}
+
 	}
 }
 
@@ -331,12 +341,21 @@ func (t *ASTConstant) Describe(indent int) string {
 	if t == nil {
 		return ""
 	}
+	if t.value[0] == '\'' {
+		ascii := int(([]rune(t.value))[1])
+		return fmt.Sprintf("%s%d", genIndent(indent), ascii)
+	}
 	return fmt.Sprintf("%s%s", genIndent(indent), t.value)
 }
 
 // TODO: investigate at later date
 func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 	// TODO: fix this to support other types etc.
+
+	if t.value[0] == '\'' {
+		ascii := int(([]rune(t.value))[1])
+		write(w, "li $v0, %d", ascii)
+	}
 
 	intValue, _ := strconv.Atoi(t.value)
 	write(w, "li $v0, %d", intValue)

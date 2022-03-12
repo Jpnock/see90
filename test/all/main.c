@@ -14,6 +14,8 @@ int f(int y, int z)
     int o;
     float c = 2.0f;
     int d = 3;
+    char a = 'a';
+    char w = 98;
 
     int *abcd = &d;
 
