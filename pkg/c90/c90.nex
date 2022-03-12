@@ -1,125 +1,112 @@
-/auto/			{ count(yylex, &lval.str); return AUTO; }
-/break/			{ count(yylex, &lval.str); return BREAK; }
-/case/			{ count(yylex, &lval.str); return CASE; }
-/char/			{ count(yylex, &lval.str); return CHAR; }
-/const/			{ count(yylex, &lval.str); return CONST; }
-/continue/		{ count(yylex, &lval.str); return CONTINUE; }
-/default/		{ count(yylex, &lval.str); return DEFAULT; }
-/do/			{ count(yylex, &lval.str); return DO; }
-/double/		{ count(yylex, &lval.str); return DOUBLE; }
-/else/			{ count(yylex, &lval.str); return ELSE; }
-/enum/			{ count(yylex, &lval.str); return ENUM; }
-/extern/		{ count(yylex, &lval.str); return EXTERN; }
-/float/			{ count(yylex, &lval.str); return FLOAT; }
-/for/			{ count(yylex, &lval.str); return FOR; }
-/goto/			{ count(yylex, &lval.str); return GOTO; }
-/if/			{ count(yylex, &lval.str); return IF; }
-/int/			{ count(yylex, &lval.str); return INT; }
-/long/			{ count(yylex, &lval.str); return LONG; }
-/register/		{ count(yylex, &lval.str); return REGISTER; }
-/return/		{ count(yylex, &lval.str); return RETURN; }
-/short/			{ count(yylex, &lval.str); return SHORT; }
-/signed/		{ count(yylex, &lval.str); return SIGNED; }
-/sizeof/		{ count(yylex, &lval.str); return SIZEOF; }
-/static/		{ count(yylex, &lval.str); return STATIC; }
-/struct/		{ count(yylex, &lval.str); return STRUCT; }
-/switch/		{ count(yylex, &lval.str); return SWITCH; }
-/typedef/		{ count(yylex, &lval.str); return TYPEDEF; }
-/union/			{ count(yylex, &lval.str); return UNION; }
-/unsigned/		{ count(yylex, &lval.str); return UNSIGNED; }
-/void/			{ count(yylex, &lval.str); return VOID; }
-/volatile/		{ count(yylex, &lval.str); return VOLATILE; }
-/while/			{ count(yylex, &lval.str); return WHILE; }
+/auto/			{ setParsedString(yylex, &lval.str); return AUTO; }
+/break/			{ setParsedString(yylex, &lval.str); return BREAK; }
+/case/			{ setParsedString(yylex, &lval.str); return CASE; }
+/char/			{ setParsedString(yylex, &lval.str); return CHAR; }
+/const/			{ setParsedString(yylex, &lval.str); return CONST; }
+/continue/		{ setParsedString(yylex, &lval.str); return CONTINUE; }
+/default/		{ setParsedString(yylex, &lval.str); return DEFAULT; }
+/do/			{ setParsedString(yylex, &lval.str); return DO; }
+/double/		{ setParsedString(yylex, &lval.str); return DOUBLE; }
+/else/			{ setParsedString(yylex, &lval.str); return ELSE; }
+/enum/			{ setParsedString(yylex, &lval.str); return ENUM; }
+/extern/		{ setParsedString(yylex, &lval.str); return EXTERN; }
+/float/			{ setParsedString(yylex, &lval.str); return FLOAT; }
+/for/			{ setParsedString(yylex, &lval.str); return FOR; }
+/goto/			{ setParsedString(yylex, &lval.str); return GOTO; }
+/if/			{ setParsedString(yylex, &lval.str); return IF; }
+/int/			{ setParsedString(yylex, &lval.str); return INT; }
+/long/			{ setParsedString(yylex, &lval.str); return LONG; }
+/register/		{ setParsedString(yylex, &lval.str); return REGISTER; }
+/return/		{ setParsedString(yylex, &lval.str); return RETURN; }
+/short/			{ setParsedString(yylex, &lval.str); return SHORT; }
+/signed/		{ setParsedString(yylex, &lval.str); return SIGNED; }
+/sizeof/		{ setParsedString(yylex, &lval.str); return SIZEOF; }
+/static/		{ setParsedString(yylex, &lval.str); return STATIC; }
+/struct/		{ setParsedString(yylex, &lval.str); return STRUCT; }
+/switch/		{ setParsedString(yylex, &lval.str); return SWITCH; }
+/typedef/		{ setParsedString(yylex, &lval.str); return TYPEDEF; }
+/union/			{ setParsedString(yylex, &lval.str); return UNION; }
+/unsigned/		{ setParsedString(yylex, &lval.str); return UNSIGNED; }
+/void/			{ setParsedString(yylex, &lval.str); return VOID; }
+/volatile/		{ setParsedString(yylex, &lval.str); return VOLATILE; }
+/while/			{ setParsedString(yylex, &lval.str); return WHILE; }
 
-/[a-zA-Z_]([a-zA-Z_]|[0-9])*/		{ count(yylex, &lval.str); lval.str=yylex.Text(); return checkType(); }
+/[a-zA-Z_]([a-zA-Z_]|[0-9])*/		{ setParsedString(yylex, &lval.str); lval.str=yylex.Text(); return checkIdentOrType(); }
 
-/0[xX][a-fA-F0-9]+((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))?/		{ count(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
-/0[0-7]*((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))?/		{ count(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
-/[1-9][0-9]*((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))?/		{ count(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
-/L?'(\\.|[^\\'\n])+'/	{ count(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
+/0[xX][a-fA-F0-9]+((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))?/		{ setParsedString(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
+/0[0-7]*((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))?/		{ setParsedString(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
+/[1-9][0-9]*((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))?/		{ setParsedString(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
+/L?'(\\.|[^\\'\n])+'/	{ setParsedString(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
 
-/[0-9]+([Ee][+-]?[0-9]+)(f|F|l|L)?/		{ count(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
-/[0-9]*\.[0-9]+([Ee][+-]?[0-9]+)?(f|F|l|L)?/	{ count(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
-/[0-9]+\.[0-9]*([Ee][+-]?[0-9]+)?(f|F|l|L)?/	{ count(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
-/0[xX][a-fA-F0-9]+([Pp][+-]?[0-9]+)(f|F|l|L)?/	{ count(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
-/0[xX][a-fA-F0-9]*\.[a-fA-F0-9]+([Pp][+-]?[0-9]+)?(f|F|l|L)?/     { count(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
-/0[xX][a-fA-F0-9]+\.[a-fA-F0-9]*([Pp][+-]?[0-9]+)?(f|F|l|L)?/     { count(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
+/[0-9]+([Ee][+-]?[0-9]+)(f|F|l|L)?/		{ setParsedString(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
+/[0-9]*\.[0-9]+([Ee][+-]?[0-9]+)?(f|F|l|L)?/	{ setParsedString(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
+/[0-9]+\.[0-9]*([Ee][+-]?[0-9]+)?(f|F|l|L)?/	{ setParsedString(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
+/0[xX][a-fA-F0-9]+([Pp][+-]?[0-9]+)(f|F|l|L)?/	{ setParsedString(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
+/0[xX][a-fA-F0-9]*\.[a-fA-F0-9]+([Pp][+-]?[0-9]+)?(f|F|l|L)?/     { setParsedString(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
+/0[xX][a-fA-F0-9]+\.[a-fA-F0-9]*([Pp][+-]?[0-9]+)?(f|F|l|L)?/     { setParsedString(yylex, &lval.str); lval.str=yylex.Text(); return CONSTANT; }
 
 
-/L?\"(\\.|[^\\"\n])*\"/	{ count(yylex, &lval.str); return STRING_LITERAL; }
+/L?\"(\\.|[^\\"\n])*\"/	{ setParsedString(yylex, &lval.str); return STRING_LITERAL; }
 
-/\.\.\./		{ count(yylex, &lval.str); return ELLIPSIS; }
-/>>=/			{ count(yylex, &lval.str); return RIGHT_ASSIGN; }
-/<<=/			{ count(yylex, &lval.str); return LEFT_ASSIGN; }
-/\+=/			{ count(yylex, &lval.str); return ADD_ASSIGN; }
-/\-=/			{ count(yylex, &lval.str); return SUB_ASSIGN; }
-/\*=/			{ count(yylex, &lval.str); return MUL_ASSIGN; }
-/\/=/			{ count(yylex, &lval.str); return DIV_ASSIGN; }
-/%=/			{ count(yylex, &lval.str); return MOD_ASSIGN; }
-/&=/			{ count(yylex, &lval.str); return AND_ASSIGN; }
-/\^=/			{ count(yylex, &lval.str); return XOR_ASSIGN; }
-/\|=/			{ count(yylex, &lval.str); return OR_ASSIGN; }
-/>>/			{ count(yylex, &lval.str); return RIGHT_OP; }
-/<</			{ count(yylex, &lval.str); return LEFT_OP; }
-/\+\+/			{ count(yylex, &lval.str); return INC_OP; }
-/\-\-/			{ count(yylex, &lval.str); return DEC_OP; }
-/\->/			{ count(yylex, &lval.str); return PTR_OP; }
-/&&/			{ count(yylex, &lval.str); return AND_OP; }
-/\|\|/			{ count(yylex, &lval.str); return OR_OP; }
-/<=/			{ count(yylex, &lval.str); return LE_OP; }
-/>=/			{ count(yylex, &lval.str); return GE_OP; }
-/==/			{ count(yylex, &lval.str); return EQ_OP; }
-/!=/			{ count(yylex, &lval.str); return NE_OP; }
-/;/			    { count(yylex, &lval.str); return int(';'); }
-/{/	            { count(yylex, &lval.str); return int(123); }
-/}/	            { count(yylex, &lval.str); return int(125); }
-/,/			    { count(yylex, &lval.str); return int(','); }
-/:/			    { count(yylex, &lval.str); return int(':'); }
-/=/			    { count(yylex, &lval.str); return int('='); }
-/\(/			{ count(yylex, &lval.str); return int('('); }
-/\)/			{ count(yylex, &lval.str); return int(')'); }
-/\[/		    { count(yylex, &lval.str); return int('['); }
-/\]/		    { count(yylex, &lval.str); return int(']'); }
-/\./			{ count(yylex, &lval.str); return int('.'); }
-/&/			    { count(yylex, &lval.str); return int('&'); }
-/!/			    { count(yylex, &lval.str); return int('!'); }
-/~/			    { count(yylex, &lval.str); return int('~'); }
-/\-/			{ count(yylex, &lval.str); return int('-'); }
-/\+/			{ count(yylex, &lval.str); return int('+'); }
-/\*/			{ count(yylex, &lval.str); return int('*'); }
-/\//			{ count(yylex, &lval.str); return int('/'); }
-/%/			    { count(yylex, &lval.str); return int('%'); }
-/</			    { count(yylex, &lval.str); return int('<'); }
-/>/			    { count(yylex, &lval.str); return int('>'); }
-/\^/			{ count(yylex, &lval.str); return int('^'); }
-/\|/			{ count(yylex, &lval.str); return int('|'); }
-/\?/			{ count(yylex, &lval.str); return int('?'); }
+/\.\.\./		{ setParsedString(yylex, &lval.str); return ELLIPSIS; }
+/>>=/			{ setParsedString(yylex, &lval.str); return RIGHT_ASSIGN; }
+/<<=/			{ setParsedString(yylex, &lval.str); return LEFT_ASSIGN; }
+/\+=/			{ setParsedString(yylex, &lval.str); return ADD_ASSIGN; }
+/\-=/			{ setParsedString(yylex, &lval.str); return SUB_ASSIGN; }
+/\*=/			{ setParsedString(yylex, &lval.str); return MUL_ASSIGN; }
+/\/=/			{ setParsedString(yylex, &lval.str); return DIV_ASSIGN; }
+/%=/			{ setParsedString(yylex, &lval.str); return MOD_ASSIGN; }
+/&=/			{ setParsedString(yylex, &lval.str); return AND_ASSIGN; }
+/\^=/			{ setParsedString(yylex, &lval.str); return XOR_ASSIGN; }
+/\|=/			{ setParsedString(yylex, &lval.str); return OR_ASSIGN; }
+/>>/			{ setParsedString(yylex, &lval.str); return RIGHT_OP; }
+/<</			{ setParsedString(yylex, &lval.str); return LEFT_OP; }
+/\+\+/			{ setParsedString(yylex, &lval.str); return INC_OP; }
+/\-\-/			{ setParsedString(yylex, &lval.str); return DEC_OP; }
+/\->/			{ setParsedString(yylex, &lval.str); return PTR_OP; }
+/&&/			{ setParsedString(yylex, &lval.str); return AND_OP; }
+/\|\|/			{ setParsedString(yylex, &lval.str); return OR_OP; }
+/<=/			{ setParsedString(yylex, &lval.str); return LE_OP; }
+/>=/			{ setParsedString(yylex, &lval.str); return GE_OP; }
+/==/			{ setParsedString(yylex, &lval.str); return EQ_OP; }
+/!=/			{ setParsedString(yylex, &lval.str); return NE_OP; }
+/;/			    { setParsedString(yylex, &lval.str); return int(';'); }
+/{/	            { setParsedString(yylex, &lval.str); return int(123); }
+/}/	            { setParsedString(yylex, &lval.str); return int(125); }
+/,/			    { setParsedString(yylex, &lval.str); return int(','); }
+/:/			    { setParsedString(yylex, &lval.str); return int(':'); }
+/=/			    { setParsedString(yylex, &lval.str); return int('='); }
+/\(/			{ setParsedString(yylex, &lval.str); return int('('); }
+/\)/			{ setParsedString(yylex, &lval.str); return int(')'); }
+/\[/		    { setParsedString(yylex, &lval.str); return int('['); }
+/\]/		    { setParsedString(yylex, &lval.str); return int(']'); }
+/\./			{ setParsedString(yylex, &lval.str); return int('.'); }
+/&/			    { setParsedString(yylex, &lval.str); return int('&'); }
+/!/			    { setParsedString(yylex, &lval.str); return int('!'); }
+/~/			    { setParsedString(yylex, &lval.str); return int('~'); }
+/\-/			{ setParsedString(yylex, &lval.str); return int('-'); }
+/\+/			{ setParsedString(yylex, &lval.str); return int('+'); }
+/\*/			{ setParsedString(yylex, &lval.str); return int('*'); }
+/\//			{ setParsedString(yylex, &lval.str); return int('/'); }
+/%/			    { setParsedString(yylex, &lval.str); return int('%'); }
+/</			    { setParsedString(yylex, &lval.str); return int('<'); }
+/>/			    { setParsedString(yylex, &lval.str); return int('>'); }
+/\^/			{ setParsedString(yylex, &lval.str); return int('^'); }
+/\|/			{ setParsedString(yylex, &lval.str); return int('|'); }
+/\?/			{ setParsedString(yylex, &lval.str); return int('?'); }
 
-/[ \t\v\n\f]/	{ count(yylex, &lval.str); }
+/[ \t\v\n\f]/	{ setParsedString(yylex, &lval.str); }
 /./			    { }
 //
 
 package c90
 
-var (
-    column = 0
-)
-
-func count(yylex *Lexer, lvalStr *string) {
-	for _, c := range yylex.Text() {
-		if (c == '\n') {
-			column = 0;
-        } else if (c == '\t') {
-			column += 8 - (column % 8);
-        } else {
-			column += 1;
-        }
-    }
+func setParsedString(yylex *Lexer, lvalStr *string) {
     *lvalStr=yylex.Text();
     return
 }
 
-func checkType() int {
+func checkIdentOrType() int {
     // TODO: check if a typedef already exists in the current scope. If
     // it does, return TYPE_NAME instead.
     return IDENTIFIER;
