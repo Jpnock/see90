@@ -49,18 +49,33 @@ func write(w io.Writer, format string, args ...interface{}) {
 	io.WriteString(w, "\n")
 }
 
-func stackPush(w io.Writer, reg string) {
+func stackPush(w io.Writer, reg string, size int) {
 	write(w, "addiu $sp, $sp, -8")
 	if reg != "" {
 		// TODO: alter sw based on reg type
-		write(w, "sw %s, 0($sp)", reg)
+		switch size {
+		case 2:
+			write(w, "sb %s, 0($sp)", reg)
+		case 4:
+			write(w, "sw %s, 0($sp)", reg)
+		default:
+			write(w, "un implemented size push")
+		}
+
 	}
 }
 
-func stackPop(w io.Writer, reg string) {
+func stackPop(w io.Writer, reg string, size int) {
 	if reg != "" {
 		// TODO: alter lw based on reg type
-		write(w, "lw %s, 0($sp)", reg)
+		switch size {
+		case 2:
+			write(w, "lb %s, 0($sp)", reg)
+		case 4:
+			write(w, "lw %s, 0($sp)", reg)
+		default:
+			write(w, "un implemented size pop")
+		}
 	}
 	write(w, "addiu $sp, $sp, 8")
 }
@@ -116,6 +131,9 @@ func (t *ASTExprBinary) generateLogical(w io.Writer, m *MIPS) {
 func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 	// TODO: work out actual type
 	var varTyp = VarTypeInteger
+	if _, ok := t.lhs.(*ASTIdentifier); ok {
+		varTyp = m.VariableScopes.Peek()[t.lhs.(*ASTIdentifier).ident].typ.typ
+	}
 	switch t.typ {
 	case ASTExprBinaryTypeLogicalAnd, ASTExprBinaryTypeLogicalOr:
 		// Special case where we need to potentially short circuit, so we cannot
@@ -128,35 +146,63 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 	t.lhs.GenerateMIPS(w, m)
 
 	switch varTyp {
-	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
+	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
 		// Store the LHS on the stack
-		stackPush(w, "$v0")
+		stackPush(w, "$v0", 4)
 
 		// Generate RHS -> result in $v0
 		t.rhs.GenerateMIPS(w, m)
 
 		// TODO: improve this so we don't push/pop to get $v0 into $t1
-		stackPush(w, "$v0")
+		stackPush(w, "$v0", 4)
 
 		// Pop the RHS result into $t1
-		stackPop(w, "$t1")
+		stackPop(w, "$t1", 4)
 
 		// Pop the LHS result into $t0
-		stackPop(w, "$t0")
-	case VarTypeFloat, VarTypeDouble:
-		stackPush(w, "$f0")
-		stackPush(w, "$f1")
+		stackPop(w, "$t0", 4)
+	case VarTypeFloat:
+		write(w, "addiu $sp, $sp, -8")
+		write(w, "swc1 $f0, 0($sp)")
 
 		t.rhs.GenerateMIPS(w, m)
 
-		stackPush(w, "$f0")
-		stackPush(w, "$f1")
+		write(w, "addiu $sp, $sp, -8")
+		write(w, "swc1 $f0, 0($sp)")
 
-		stackPop(w, "$f5")
-		stackPop(w, "$f4")
+		write(w, "lwc1 $f4, 0($sp)")
+		write(w, "addiu $sp, $sp, 8")
 
-		stackPop(w, "$f3")
-		stackPop(w, "$f2")
+		write(w, "lwc1 $f2, 0($sp)")
+		write(w, "addiu $sp, $sp, 8")
+	case VarTypeDouble:
+		write(w, "addiu $sp, $sp, -8")
+		write(w, "swc1 $f0, 4($sp)")
+		write(w, "swc1 $f1, 0($sp)")
+
+		t.rhs.GenerateMIPS(w, m)
+
+		write(w, "addiu $sp, $sp, -8")
+		write(w, "swc1 $f0, 4($sp)")
+		write(w, "swc1 $f1, 0($sp)")
+
+		write(w, "lwc1 $f4, 4($sp)")
+		write(w, "lwc1 $f5, 0($sp)")
+		write(w, "addiu $sp, $sp, 8")
+
+		write(w, "lwc1 $f2, 4($sp)")
+		write(w, "lwc1 $f3, 0($sp)")
+		write(w, "addiu $sp, $sp, 8")
+	case VarTypeChar:
+		stackPush(w, "$v0", 2)
+
+		t.rhs.GenerateMIPS(w, m)
+
+		stackPush(w, "$v0", 2)
+
+		stackPop(w, "$t1", 2)
+
+		stackPop(w, "$t0", 2)
 	default:
 		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 	}
@@ -376,18 +422,23 @@ func (t *ASTExprPrefixUnary) Describe(indent int) string {
 
 func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	// TODO: maybe change from li.s to cvt.d.s
+	var varTyp = VarTypeInteger
+	if _, ok := t.lvalue.(*ASTIdentifier); ok {
+		varTyp = m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].typ.typ
+	}
 
 	// TODO: work out actual type
-	var varTyp = VarTypeInteger
-
 	t.lvalue.GenerateMIPS(w, m)
 
 	switch t.typ {
 	case ASTExprPrefixUnaryTypeIncrement:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
 			write(w, "addiu $v0, $v0, 1")
 			write(w, "sw $v0, 0($v1)")
+		case VarTypeChar:
+			write(w, "addiu $v0, $v0, 1")
+			write(w, "sb $v0, 0($v1)")
 		case VarTypeFloat:
 			write(w, "li.s $f10, 1")
 			write(w, "add.s $f0, $f0, $f10")
@@ -395,17 +446,20 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 		case VarTypeDouble:
 			write(w, "li.d $f10, 1")
 			write(w, "add.d $f0, $f0, $f10")
-			write(w, "sdc1 $f0, 0($v1)")
-			write(w, "sdc1 $f1, 4($v1)")
+			write(w, "swc1 $f0, 4($v1)")
+			write(w, "swc1 $f1, 0($v1)")
 		default:
 			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
 
 	case ASTExprPrefixUnaryTypeDecrement:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
 			write(w, "addiu $v0, $v0, -1")
 			write(w, "sw $v0, 0($v1)")
+		case VarTypeChar:
+			write(w, "addiu $v0, $v0, -1")
+			write(w, "sb $v0, 0($v1)")
 		case VarTypeFloat:
 			write(w, "li.s $f10, -1")
 			write(w, "add.s $f0, $f0, $f10")
@@ -413,8 +467,8 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 		case VarTypeDouble:
 			write(w, "li.d $f10, -1")
 			write(w, "add.d $f0, $f0, $f10")
-			write(w, "sdc1 $f0, 0($v1)")
-			write(w, "sdc1 $f1, 4($v1)")
+			write(w, "swc1 $f0, 4($v1)")
+			write(w, "swc1 $f1, 0($v1)")
 		default:
 			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
@@ -506,8 +560,11 @@ func (t *ASTExprSuffixUnary) Describe(indent int) string {
 }
 
 func (t *ASTExprSuffixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
-	// TODO: work out actual type
+	// TODO: work out actual type this probs doesnt work
 	var varTyp = VarTypeInteger
+	if _, ok := t.lvalue.(*ASTIdentifier); ok {
+		varTyp = m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].typ.typ
+	}
 
 	t.lvalue.GenerateMIPS(w, m)
 
@@ -516,10 +573,14 @@ func (t *ASTExprSuffixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	switch t.typ {
 	case ASTExprSuffixUnaryTypeIncrement:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
 			// The returned value should not be incremented, only the variable.
 			write(w, "addiu $v0, $v0, 1")
 			write(w, "sw $v0, 0($v1)")
+			write(w, "addiu $v0, $v0, -1")
+		case VarTypeChar:
+			write(w, "addiu $v0, $v0, 1")
+			write(w, "sb $v0, 0($v1)")
 			write(w, "addiu $v0, $v0, -1")
 		case VarTypeFloat:
 			write(w, "li.s $f10, 1")
@@ -529,8 +590,8 @@ func (t *ASTExprSuffixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 		case VarTypeDouble:
 			write(w, "li.d $f10, 1")
 			write(w, "add.d $f0, $f0, $f10")
-			write(w, "sdc1 $f0, 0($v1)")
-			write(w, "sdc1 $f1, 4($v1)")
+			write(w, "swc1 $f0, 4($v1)")
+			write(w, "swc1 $f1, 0($v1)")
 			write(w, "sub.d $f0, $f0, $f10")
 		default:
 			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
@@ -538,10 +599,14 @@ func (t *ASTExprSuffixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	case ASTExprSuffixUnaryTypeDecrement:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
 			// The returned value should not be decremented, only the variable.
 			write(w, "addiu $v0, $v0, -1")
 			write(w, "sw $v0, 0($v1)")
+			write(w, "addiu $v0, $v0, 1")
+		case VarTypeChar:
+			write(w, "addiu $v0, $v0, -1")
+			write(w, "sb $v0, 0($v1)")
 			write(w, "addiu $v0, $v0, 1")
 		case VarTypeFloat:
 			write(w, "li.s $f10, -1")
@@ -551,8 +616,8 @@ func (t *ASTExprSuffixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 		case VarTypeDouble:
 			write(w, "li.d $f10, -1")
 			write(w, "add.d $f0, $f0, $f10")
-			write(w, "sdc1 $f0, 0($v1)")
-			write(w, "sdc1 $f1, 4($v1)")
+			write(w, "swc1 $f0, 4($v1)")
+			write(w, "swc1 $f1, 0($v1)")
 			write(w, "sub.d $f0, $f0, $f10")
 		default:
 			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
