@@ -99,6 +99,8 @@ func (t *ASTExprBinary) generateLogical(w io.Writer, m *MIPS) {
 	// Generate LHS -> result in $v0
 	t.lhs.GenerateMIPS(w, m)
 
+	var varTyp = *m.LastType
+
 	failureLabel := m.CreateUniqueLabel("logical_failure")
 	successLabel := m.CreateUniqueLabel("logical_success")
 	finalLabel := m.CreateUniqueLabel("logical_final")
@@ -106,11 +108,38 @@ func (t *ASTExprBinary) generateLogical(w io.Writer, m *MIPS) {
 	// Do a comparison to check if true/false and short circuit
 	switch t.typ {
 	case ASTExprBinaryTypeLogicalAnd:
-		// Jump to end (failure) if short circuit (false)
-		write(w, "beq $zero, $v0, %s", failureLabel)
+		switch varTyp {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeChar, VarTypeUnsigned:
+			// Jump to end (failure) if short circuit (false)
+			write(w, "beq $zero, $v0, %s", failureLabel)
+
+		case VarTypeFloat:
+			write(w, "li.s $f10, 0")
+			write(w, "c.eq.s $f0, $f10")
+			write(w, "bc1t %s", failureLabel)
+		case VarTypeDouble:
+			write(w, "li.d $f10, 0")
+			write(w, "c.eq.d $f0, $f10")
+			write(w, "bc1t %s", failureLabel)
+		}
+
+	// TODO: fix
 	case ASTExprBinaryTypeLogicalOr:
-		// Jump to end (success) if short circuit (true)
-		write(w, "bne $zero, $v0, %s", successLabel)
+		switch varTyp {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeChar, VarTypeUnsigned:
+			// Jump to end (success) if short circuit (true)
+			write(w, "bne $zero, $v0, %s", successLabel)
+
+		case VarTypeFloat:
+			write(w, "li.s $f10, 0")
+			write(w, "c.eq.s $f0, $f10")
+			write(w, "bc1t %s", successLabel)
+		case VarTypeDouble:
+			write(w, "li.d $f10, 0")
+			write(w, "c.eq.d $f0, $f10")
+			write(w, "bc1t %s", successLabel)
+		}
+
 	default:
 		panic("unknown logical function in ASTExprBinary")
 	}
@@ -130,10 +159,6 @@ func (t *ASTExprBinary) generateLogical(w io.Writer, m *MIPS) {
 
 func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 	// TODO: work out actual type
-	var varTyp = VarTypeInteger
-	if _, ok := t.lhs.(*ASTIdentifier); ok {
-		varTyp = m.VariableScopes.Peek()[t.lhs.(*ASTIdentifier).ident].typ.typ
-	}
 	switch t.typ {
 	case ASTExprBinaryTypeLogicalAnd, ASTExprBinaryTypeLogicalOr:
 		// Special case where we need to potentially short circuit, so we cannot
@@ -144,6 +169,8 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	// Generate LHS -> result in $v0
 	t.lhs.GenerateMIPS(w, m)
+
+	var varTyp = *m.LastType
 
 	switch varTyp {
 	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
@@ -422,13 +449,11 @@ func (t *ASTExprPrefixUnary) Describe(indent int) string {
 
 func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	// TODO: maybe change from li.s to cvt.d.s
-	var varTyp = VarTypeInteger
-	if _, ok := t.lvalue.(*ASTIdentifier); ok {
-		varTyp = m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].typ.typ
-	}
 
 	// TODO: work out actual type
 	t.lvalue.GenerateMIPS(w, m)
+
+	var varTyp = *m.LastType
 
 	switch t.typ {
 	case ASTExprPrefixUnaryTypeIncrement:
@@ -561,13 +586,10 @@ func (t *ASTExprSuffixUnary) Describe(indent int) string {
 
 func (t *ASTExprSuffixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	// TODO: work out actual type this probs doesnt work
-	var varTyp = VarTypeInteger
-	if _, ok := t.lvalue.(*ASTIdentifier); ok {
-		varTyp = m.VariableScopes.Peek()[t.lvalue.(*ASTIdentifier).ident].typ.typ
-	}
 
 	t.lvalue.GenerateMIPS(w, m)
 
+	var varTyp = *m.LastType
 	// TODO: handle global variables
 
 	switch t.typ {

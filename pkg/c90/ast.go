@@ -192,7 +192,10 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 		panic(fmt.Errorf("identifier `%s` is not in scope", t.ident))
 	}
 
-	switch variable.typ.typ {
+	varType := variable.typ.typ
+	m.LastType = &varType
+
+	switch varType {
 	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
 		// Put the value of the variable into $v0
 		write(w, "lw $v0, %d($fp)", -variable.fpOffset)
@@ -377,6 +380,9 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 			panic(fmt.Errorf("character literal unquote gave error: %v", err))
 		}
 		write(w, "li $v0, %d", unquotedString[0])
+		VarType := VarTypeChar
+		m.LastType = &VarType
+		return
 	}
 
 	lastIdx := len(t.value) - 1
@@ -389,17 +395,26 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 			f32, err := strconv.ParseFloat(t.value[:lastIdx-1], 32)
 			if err == nil {
 				write(w, "li.s $f0, %f", float32(f32))
+				VarType := VarTypeFloat
+				m.LastType = &VarType
+				return
 			}
 		} else {
 			f64, err := strconv.ParseFloat(t.value, 64)
 			if err == nil {
 				write(w, "li.d $f0, %f", f64)
+				VarType := VarTypeDouble
+				m.LastType = &VarType
+				return
 			}
 		}
 	}
 
 	intValue, _ := strconv.Atoi(t.value)
 	write(w, "li $v0, %d", intValue)
+	VarType := VarTypeInteger
+	m.LastType = &VarType
+
 }
 
 type ASTStringLiteral struct {

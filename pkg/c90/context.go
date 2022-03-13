@@ -26,6 +26,7 @@ type MIPS struct {
 	Context         *MIPSContext
 	LabelScopes     LabelScopeStack
 	CaseLabelScopes CaseLabelScopeStack
+	LastType        *VarType
 
 	uniqueLabelNumber uint
 }
@@ -35,6 +36,7 @@ func NewMIPS() *MIPS {
 		VariableScopes:    nil,
 		Context:           &MIPSContext{},
 		LabelScopes:       nil,
+		LastType:          nil,
 		uniqueLabelNumber: 0,
 	}
 }
