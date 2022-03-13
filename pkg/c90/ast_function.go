@@ -43,6 +43,11 @@ type ASTFunction struct {
 	body Node
 }
 
+func (t *ASTFunction) Name() string {
+	declDescribe := t.decl.Describe(0)
+	return declDescribe[:strings.Index(declDescribe, "(")]
+}
+
 func (t *ASTFunction) Describe(indent int) string {
 	if t == nil {
 		panic("ASTFunction is nil")
@@ -51,16 +56,14 @@ func (t *ASTFunction) Describe(indent int) string {
 	indentStr := genIndent(indent)
 
 	declDescribe := t.decl.Describe(0)
-	funcName := declDescribe[:strings.Index(declDescribe, "(")]
 
 	if t.body == nil {
+		// TODO: we'd need to generate MIPS for this but just return instantly.
 		return fmt.Sprintf("%sfunction (%s) -> %s {}", indentStr, declDescribe, t.typ.Describe(0))
 	} else {
 		val := fmt.Sprintf("%sfunction (%s) -> %s {\n%s\n}\n", indentStr, declDescribe, t.typ.Describe(0), t.body.Describe(indent+4))
 
 		buf := new(bytes.Buffer)
-		buf.WriteString(fmt.Sprintf("%s:\n", funcName))
-
 		m := NewMIPS()
 		t.GenerateMIPS(buf, m)
 
@@ -80,22 +83,39 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.NewFunction()
 	defer m.EndFunction()
 
+	funcName := t.Name()
+	write(w, ".globl %s\n", funcName)
+	write(w, "%s:\n", funcName)
+
+	var variables []*Variable
 	for i, param := range t.decl.parameters.li {
-		stackOffset := 8 * (i + 1)
+		stackOffset := 4 * i
 
 		// TODO: at the moment, we're assuming all function parameters are
 		// identifiers, however this is clearly not the case when you have array
 		// parameters.
 		directDecl, ok := param.declarator.(*ASTDirectDeclarator)
 		if ok {
-			m.VariableScopes[len(m.VariableScopes)-1][directDecl.identifier.ident] = &Variable{
+			v := &Variable{
 				fpOffset: -stackOffset,
 				decl:     nil,
 			}
+			m.VariableScopes[len(m.VariableScopes)-1][directDecl.identifier.ident] = v
+			variables = append(variables, v)
 		}
 	}
 
+	// TODO: do we need to generate mips
 	t.decl.GenerateMIPS(w, m)
+
+	for i, param := range variables {
+		// TODO: change size with type
+		write(w, "sw $%d, %d($fp)", i+4, -param.fpOffset)
+		if i == 3 {
+			break
+		}
+	}
+
 	t.body.GenerateMIPS(w, m)
 }
 
@@ -111,12 +131,40 @@ func (t *ASTFunctionCall) Describe(indent int) string {
 	}
 	var sb strings.Builder
 	for i, arg := range t.arguments {
-		sb.WriteString(arg.Describe(0))
 		if i != 0 {
 			sb.WriteString(", ")
 		}
+		sb.WriteString(arg.Describe(0))
 	}
 	return fmt.Sprintf("%s%s(%s)", genIndent(indent), t.function.Describe(0), sb.String())
 }
 
-func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
+	stackPop := 16
+	// TODO: decide when to switch to stack based on 4x4 byte arguments
+	for i, arg := range t.arguments {
+		arg.GenerateMIPS(w, m)
+		// TODO: switch on type of arg
+		if i < 4 {
+			// Arguments _definitely_ on stack after this
+			write(w, "move $%d, $v0", 4+i)
+		} else {
+			// TODO: Sizing is wrong (and probably argument ordering)
+			stackPop += 4
+			write(w, "addiu $sp, $sp, -4")
+			write(w, "sw $v0, 0($sp)")
+		}
+	}
+	write(w, "addiu $sp, $sp, -16")
+	// TODO: handle arguments
+	funcName := t.FunctionName()
+	write(w, "j %s", funcName)
+
+	if stackPop > 0 {
+		write(w, "addiu $sp, $sp, %d", stackPop)
+	}
+}
+
+func (t *ASTFunctionCall) FunctionName() string {
+	return t.function.Describe(0)
+}
