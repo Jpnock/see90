@@ -88,3 +88,27 @@ func (s *CaseLabelScopeStack) Peek() *CaseLabelScope {
 	labelScope := (*s)[len(*s)-1]
 	return &labelScope
 }
+
+type ReturnScopeStack []Label
+
+func (s *ReturnScopeStack) Push(v Label) {
+	*s = append(*s, v)
+}
+
+func (s *ReturnScopeStack) Pop() *Label {
+	if len(*s) == 0 {
+		return nil
+	}
+
+	labelScope := (*s)[len(*s)-1]
+	*s = (*s)[:len(*s)-1]
+	return &labelScope
+}
+
+func (s *ReturnScopeStack) Peek() *Label {
+	if len(*s) == 0 {
+		return nil
+	}
+	labelScope := (*s)[len(*s)-1]
+	return &labelScope
+}

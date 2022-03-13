@@ -374,7 +374,7 @@ func (t *ASTReturn) Describe(indent int) string {
 
 func (t *ASTReturn) GenerateMIPS(w io.Writer, m *MIPS) {
 	t.returnVal.GenerateMIPS(w, m)
-	write(w, "jr $ra")
+	write(w, "j %s", *m.ReturnScopes.Peek())
 }
 
 type ASTContinue struct{}

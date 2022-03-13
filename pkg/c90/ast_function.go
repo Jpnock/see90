@@ -82,6 +82,10 @@ func (t *ASTFunction) Describe(indent int) string {
 func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.NewFunction()
 	defer m.EndFunction()
+	// Always return at end of function
+	defer write(w, "jr $ra")
+
+	returnLabel := m.ReturnScopes.Peek()
 
 	funcName := t.Name()
 	write(w, ".globl %s\n", funcName)
@@ -117,6 +121,8 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 
 	t.body.GenerateMIPS(w, m)
+
+	write(w, "%s:", *returnLabel)
 }
 
 type ASTFunctionCall struct {

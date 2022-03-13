@@ -25,6 +25,7 @@ type MIPS struct {
 	Context         *MIPSContext
 	LabelScopes     LabelScopeStack
 	CaseLabelScopes CaseLabelScopeStack
+	ReturnScopes    ReturnScopeStack
 
 	uniqueLabelNumber uint
 }
@@ -89,8 +90,10 @@ func (m *MIPS) NewFunction() {
 	const ra = 4
 	m.Context.CurrentStackFramePointerOffset = fp + sp + ra
 	m.NewVariableScope()
+	m.ReturnScopes.Push(m.CreateUniqueLabel("function_return"))
 }
 
 func (m *MIPS) EndFunction() {
 	m.VariableScopes.Pop()
+	m.ReturnScopes.Pop()
 }
