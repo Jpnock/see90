@@ -460,6 +460,26 @@ func (t ASTDirectDeclarator) GenerateMIPS(w io.Writer, m *MIPS) {
 	// }
 }
 
+type ASTScope struct {
+	body Node
+}
+
+func (t *ASTScope) Describe(indent int) string {
+	if t.body == nil {
+		return ""
+	}
+	return t.body.Describe(indent)
+}
+
+func (t *ASTScope) GenerateMIPS(w io.Writer, m *MIPS) {
+	if t.body == nil {
+		return
+	}
+	m.NewVariableScope()
+	t.body.GenerateMIPS(w, m)
+	m.VariableScopes.Pop()
+}
+
 func genIndent(indent int) string {
 	return strings.Repeat(" ", indent)
 }

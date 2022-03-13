@@ -502,10 +502,21 @@ labeled_statement
 
 // TODO: create a new scope for these
 compound_statement
-	: '{' '}'
-	| '{' statement_list '}' { $$.n = $2.n }
-	| '{' declaration_list '}' { $$.n = $2.n }
-	| '{' declaration_list statement_list '}' { $$.n = &ASTDeclarationStatementLists{decls: $2.n.(ASTDeclaratorList), stmts: $3.n.(ASTStatementList)} }
+	: '{' '}' { $$.n = &ASTScope{} }
+	| '{' statement_list '}' { 
+		$$.n = &ASTScope{body: $2.n} 
+	}
+	| '{' declaration_list '}' { 
+		$$.n = &ASTScope{body: $2.n} 
+	}
+	| '{' declaration_list statement_list '}' {
+		$$.n = &ASTScope{
+			body: &ASTDeclarationStatementLists{
+				decls: $2.n.(ASTDeclaratorList),
+				stmts: $3.n.(ASTStatementList),
+			},
+		}
+	}
 	;
 
 declaration_list
