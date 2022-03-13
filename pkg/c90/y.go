@@ -1739,43 +1739,41 @@ yydefault:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line pkg/c90/grammar.y:616
 		{
-			AST = ASTTranslationUnit{
-				&ASTNode{inner: yyDollar[1].n},
-			}
+			AST = ASTTranslationUnit{yyDollar[1].n}
 		}
 	case 205:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:621
+//line pkg/c90/grammar.y:619
 		{
-			AST = append(AST, &ASTNode{inner: yyDollar[2].n})
+			AST = append(AST, yyDollar[2].n)
 		}
 	case 206:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:627
+//line pkg/c90/grammar.y:625
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 208:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line pkg/c90/grammar.y:632
+//line pkg/c90/grammar.y:630
 		{
 			panic("Old K&R style function parsed (1)")
 		}
 	case 209:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:633
+//line pkg/c90/grammar.y:631
 		{
 			yyVAL.n = &ASTFunction{typ: yyDollar[1].typ, decl: yyDollar[2].n.(*ASTDirectDeclarator), body: yyDollar[3].n}
 		}
 	case 210:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:634
+//line pkg/c90/grammar.y:632
 		{
 			panic("Old K&R style function parsed (2)")
 		}
 	case 211:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:635
+//line pkg/c90/grammar.y:633
 		{
 			yyVAL.n = &ASTFunction{typ: &ASTType{typ: "int"}, decl: yyDollar[1].n.(*ASTDirectDeclarator), body: yyDollar[2].n}
 		}

@@ -614,18 +614,16 @@ jump_statement
 
 translation_unit
 	: external_declaration { 
-		AST = ASTTranslationUnit{
-			&ASTNode{inner: $1.n},
-		} 
+		AST = ASTTranslationUnit{$1.n} 
 	}
 	| translation_unit external_declaration {
-		AST = append(AST, &ASTNode{inner: $2.n})
+		AST = append(AST, $2.n)
 	}
 	;
 
 external_declaration
 	: function_definition { $$.n = $1.n }
-	| declaration
+	| declaration // TODO: global variables
 	;
 
 function_definition

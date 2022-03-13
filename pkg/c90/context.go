@@ -32,7 +32,10 @@ type MIPS struct {
 
 func NewMIPS() *MIPS {
 	return &MIPS{
-		VariableScopes:    nil,
+		VariableScopes: VariableScopeStack{
+			// Global scope is always the first level
+			VariableScope{},
+		},
 		Context:           &MIPSContext{},
 		LabelScopes:       nil,
 		uniqueLabelNumber: 0,
@@ -88,6 +91,7 @@ func (m *MIPS) NewFunction() {
 	const fp = 4
 	const sp = 4
 	const ra = 4
+	// TODO: change this
 	m.Context.CurrentStackFramePointerOffset = fp + sp + ra
 	m.NewVariableScope()
 	m.ReturnScopes.Push(m.CreateUniqueLabel("function_return"))

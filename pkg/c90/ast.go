@@ -300,6 +300,12 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 		fpOffset: m.Context.GetNewLocalOffset(),
 		decl:     t,
 	}
+
+	if t.decl == nil || t.decl.identifier == nil {
+		// TODO: handle this case (mostly caused by function prototypes).
+		return
+	}
+
 	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
 	if t.initVal != nil {
 		t.initVal.GenerateMIPS(w, m)
@@ -339,19 +345,6 @@ func (t *ASTStringLiteral) Describe(indent int) string {
 
 // TODO: investigate at later date
 func (t *ASTStringLiteral) GenerateMIPS(w io.Writer, m *MIPS) {}
-
-type ASTNode struct {
-	inner Node
-}
-
-func (t *ASTNode) Describe(indent int) string {
-	if t == nil {
-		return ""
-	}
-	return t.inner.Describe(indent)
-}
-
-func (t *ASTNode) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 type ASTPanic struct{}
 

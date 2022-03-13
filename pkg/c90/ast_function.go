@@ -1,10 +1,8 @@
 package c90
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 )
 
@@ -60,30 +58,15 @@ func (t *ASTFunction) Describe(indent int) string {
 	if t.body == nil {
 		// TODO: we'd need to generate MIPS for this but just return instantly.
 		return fmt.Sprintf("%sfunction (%s) -> %s {}", indentStr, declDescribe, t.typ.Describe(0))
-	} else {
-		val := fmt.Sprintf("%sfunction (%s) -> %s {\n%s\n}\n", indentStr, declDescribe, t.typ.Describe(0), t.body.Describe(indent+4))
-
-		buf := new(bytes.Buffer)
-		m := NewMIPS()
-		t.GenerateMIPS(buf, m)
-
-		for _, scope := range m.VariableScopes {
-			val += fmt.Sprintf("%snew scope!\n", indentStr)
-			for ident, variable := range scope {
-				val += fmt.Sprintf("%s%s: %v\n", indentStr, ident, *variable)
-			}
-		}
-
-		fmt.Fprintf(os.Stdout, "\n\n%s", buf.String())
-		return val
 	}
+	return fmt.Sprintf("%sfunction (%s) -> %s {\n%s\n}\n", indentStr, declDescribe, t.typ.Describe(0), t.body.Describe(indent+4))
 }
 
 func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.NewFunction()
 	defer m.EndFunction()
 	// Always return at end of function
-	defer write(w, "jr $ra")
+	defer write(w, "jr $ra\n")
 
 	returnLabel := m.ReturnScopes.Peek()
 
