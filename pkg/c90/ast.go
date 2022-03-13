@@ -228,7 +228,7 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	switch t.operator {
 	case ASTAssignmentOperatorMulEquals:
-		write(w, "mul $t0, $v0")
+		write(w, "mult $t0, $v0")
 		write(w, "mflo $v0")
 	case ASTAssignmentOperatorDivEquals:
 		write(w, "div $t0, $v0")

@@ -127,7 +127,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	switch t.typ {
 	case ASTExprBinaryTypeMul:
-		write(w, "mul $v0, $t0, $t1")
+		write(w, "mult $t0, $t1")
 		write(w, "mflo $v0")
 	case ASTExprBinaryTypeDiv:
 		write(w, "div $t0, $t1")
