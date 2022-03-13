@@ -3,8 +3,7 @@
 set -euo pipefail
 
 make
-echo ".globl f" > ./test/all/main.s
-cat ./test/all/main.c | ./bin/see90 >> ./test/all/main.s
+cat ./test/all/main.c | ./bin/see90 > ./test/all/main.s
 
 mips-linux-gnu-gcc -mfp32 -o ./test/all/main.o -c ./test/all/main.s
 mips-linux-gnu-gcc -mfp32 -static -o ./test/all/main ./test/all/main.o ./test/all/root.c

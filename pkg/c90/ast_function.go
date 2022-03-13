@@ -110,7 +110,23 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 
 	// TODO: do we need to generate mips
-	t.decl.GenerateMIPS(w, m)
+	// t.decl.GenerateMIPS(w, m)
+
+	// Store $sp
+	write(w, "move $t7, $sp")
+
+	// Store $fp
+	stackPush(w, "$fp")
+	defer stackPop(w, "$fp")
+
+	// Move frame pointer to bottom of frame
+	// TODO: not ABI compliant
+	write(w, "move $fp, $t7")
+
+	// TODO: use correct length
+	reserve := 8 * 20
+	write(w, "addiu $sp, $sp, %d", -reserve)
+	defer write(w, "addiu $sp, $sp, %d", reserve)
 
 	for i, param := range variables {
 		// TODO: change size with type
@@ -146,7 +162,10 @@ func (t *ASTFunctionCall) Describe(indent int) string {
 }
 
 func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
-	stackPop := 16
+	stackPush(w, "$ra")
+	defer stackPop(w, "$ra")
+
+	numStackPop := 16
 	// TODO: decide when to switch to stack based on 4x4 byte arguments
 	for i, arg := range t.arguments {
 		arg.GenerateMIPS(w, m)
@@ -156,18 +175,20 @@ func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
 			write(w, "move $%d, $v0", 4+i)
 		} else {
 			// TODO: Sizing is wrong (and probably argument ordering)
-			stackPop += 4
+			numStackPop += 4
 			write(w, "addiu $sp, $sp, -4")
 			write(w, "sw $v0, 0($sp)")
 		}
 	}
+
 	write(w, "addiu $sp, $sp, -16")
 	// TODO: handle arguments
 	funcName := t.FunctionName()
-	write(w, "j %s", funcName)
 
-	if stackPop > 0 {
-		write(w, "addiu $sp, $sp, %d", stackPop)
+	write(w, "jal %s", funcName)
+
+	if numStackPop > 0 {
+		write(w, "addiu $sp, $sp, %d", numStackPop)
 	}
 }
 
