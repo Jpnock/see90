@@ -71,7 +71,7 @@ func (t *ASTExprBinary) generateLogical(w io.Writer, m *MIPS) {
 
 	failureLabel := m.CreateUniqueLabel("logical_failure")
 	successLabel := m.CreateUniqueLabel("logical_success")
-	finalLabel := m.CreateUniqueLabel("logical_final")
+	endLabel := m.CreateUniqueLabel("logical_end")
 
 	// Do a comparison to check if true/false and short circuit
 	switch t.typ {
@@ -85,17 +85,30 @@ func (t *ASTExprBinary) generateLogical(w io.Writer, m *MIPS) {
 		panic("unknown logical function in ASTExprBinary")
 	}
 
+	// Generate RHS -> result in $v0
 	t.rhs.GenerateMIPS(w, m)
 
-	write(w, "%s:", successLabel)
-	write(w, "addiu $v0, $zero, 1")
-	write(w, "j %s", finalLabel)
+	switch t.typ {
+	case ASTExprBinaryTypeLogicalAnd:
+		// Jump to end (failure) if short circuit (false)
+		write(w, "beq $zero, $v0, %s", failureLabel)
+		// Both LHS and RHS are non-zero, so jump to success
+		write(w, "j %s", successLabel)
+	case ASTExprBinaryTypeLogicalOr:
+		// Jump to end (success) if short circuit (true)
+		write(w, "bne $zero, $v0, %s", successLabel)
+	default:
+		panic("unknown logical function in ASTExprBinary")
+	}
 
 	// Jump to this section if the condition is not met
 	write(w, "%s:", failureLabel)
 	write(w, "addiu $v0, $zero, 0")
+	write(w, "j %s", endLabel)
 
-	write(w, "%s:", finalLabel)
+	write(w, "%s:", successLabel)
+	write(w, "addiu $v0, $zero, 1")
+	write(w, "%s:", endLabel)
 }
 
 func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
