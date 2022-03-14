@@ -86,10 +86,12 @@ func branchOnCondition(w io.Writer, m *MIPS) {
 	write(w, "bc1t %s", trueLabel)
 
 	write(w, "addiu $v0, $zero, 0")
+	write(w, "li.s $f0, 0")
 	write(w, "j %s", finalLabel)
 
 	write(w, "%s:", trueLabel)
 	write(w, "addiu $v0, $zero, 1")
+	write(w, "li.s $f0, 1")
 
 	write(w, "%s:", finalLabel)
 }
