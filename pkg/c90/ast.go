@@ -374,6 +374,7 @@ func (t *ASTConstant) Describe(indent int) string {
 func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 	// TODO: fix this to support other types etc.
 
+	// TODO: currently doesnt detect chars declard with an int not a char literal
 	if t.value[0] == '\'' {
 		unquotedString, err := strconv.Unquote(t.value)
 		if err != nil {
