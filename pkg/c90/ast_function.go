@@ -146,33 +146,116 @@ func (t *ASTFunctionCall) Describe(indent int) string {
 }
 
 func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
+	// Need to do this as the very start/last thing
+	// to prevent it interfering with the call stack.
 	stackPush(w, "$ra", 4)
 	defer stackPop(w, "$ra", 4)
 
-	numStackPop := 16
+	const regTypeFP = "fp"
+	const regTypeInt = "int"
+	firstRegisterType := regTypeInt
+
+	overflowArgsStackPopAmount := 0
+	lastIntRegisterUsed := 3
+	numBytesUsed := 0
+
 	// TODO: decide when to switch to stack based on 4x4 byte arguments
 	for i, arg := range t.arguments {
 		arg.GenerateMIPS(w, m)
-		// TODO: switch on type of arg
-		if i < 4 {
-			// Arguments _definitely_ on stack after this
-			write(w, "move $%d, $v0", 4+i)
-		} else {
-			// TODO: Sizing is wrong (and probably argument ordering)
-			numStackPop += 4
-			write(w, "addiu $sp, $sp, -4")
-			write(w, "sw $v0, 0($sp)")
+
+		if numBytesUsed >= 16 || lastIntRegisterUsed >= 7 {
+			// Put variables on stack as we've overflowed the register space
+			// available.
+			switch m.LastType {
+			case VarTypeFloat:
+				overflowArgsStackPopAmount += 4
+				write(w, "addiu $sp, $sp, -4")
+				write(w, "swc1 $f0, 0($sp)")
+			case VarTypeDouble:
+				overflowArgsStackPopAmount += 8
+				write(w, "addiu $sp, $sp, -8")
+				write(w, "swc1 $f0, 4($sp)")
+				write(w, "swc1 $f1, 0($sp)")
+			default:
+				// TODO: Sizing is wrong for some types (and probably argument ordering)
+				overflowArgsStackPopAmount += 4
+				write(w, "addiu $sp, $sp, -4")
+				write(w, "sw $v0, 0($sp)")
+			}
+			continue
 		}
+
+		if i == 0 && (m.LastType == VarTypeFloat || m.LastType == VarTypeDouble) {
+			// Check if we need to handle the edgecase
+			firstRegisterType = regTypeFP
+		}
+
+		nextIntReg := lastIntRegisterUsed + 1
+
+		if firstRegisterType == regTypeFP && i < 2 {
+			if m.LastType == VarTypeFloat {
+				if nextIntReg == 4 {
+					write(w, "mov.s $f12, $f0")
+				} else {
+					write(w, "mov.s $f14, $f0")
+				}
+
+				lastIntRegisterUsed += 1
+				numBytesUsed += 4
+
+				// Process next arg
+				continue
+			} else if m.LastType == VarTypeDouble {
+				if nextIntReg == 4 {
+					write(w, "mov.s $f12, $f0")
+					write(w, "mov.s $f13, $f1")
+				} else {
+					write(w, "mov.s $f14, $f0")
+					write(w, "mov.s $f15, $f1")
+				}
+
+				lastIntRegisterUsed += 2
+				numBytesUsed += 8
+
+				// Process next arg
+				continue
+			}
+
+			// We're no longer dealing with an FP arg, so handle this below.
+		}
+
+		// Everything from herein goes into int registers
+		switch m.LastType {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
+			write(w, "move $%d, $v0", nextIntReg)
+			numBytesUsed += 4
+		case VarTypeFloat:
+			write(w, "mfc1 $%d, $f0", nextIntReg)
+			numBytesUsed += 4
+		case VarTypeDouble:
+			if nextIntReg%2 != 0 {
+				// Needs to be even aligned for some reason.
+				nextIntReg += 1
+			}
+			write(w, "mfc1 $%d, $f0", nextIntReg+1)
+			write(w, "mfc1 $%d, $f1", nextIntReg)
+
+			// We use two registers, so increment this here.
+			nextIntReg += 1
+			numBytesUsed += 8
+		default:
+			panic("unknown function call arg type")
+		}
+
+		lastIntRegisterUsed = nextIntReg
 	}
 
 	write(w, "addiu $sp, $sp, -16")
-	// TODO: handle arguments
-	funcName := t.FunctionName()
+	write(w, "jal %s", t.FunctionName())
+	write(w, "addiu $sp, $sp, 16")
 
-	write(w, "jal %s", funcName)
-
-	if numStackPop > 0 {
-		write(w, "addiu $sp, $sp, %d", numStackPop)
+	if overflowArgsStackPopAmount > 0 {
+		write(w, "addiu $sp, $sp, %d", overflowArgsStackPopAmount)
 	}
 }
 
