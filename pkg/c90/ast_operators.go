@@ -423,6 +423,7 @@ const (
 	ASTExprPrefixUnaryTypeNegative    ASTExprPrefixUnaryType = "-"
 	ASTExprPrefixUnaryTypeNot         ASTExprPrefixUnaryType = "~"
 	ASTExprPrefixUnaryTypeInvert      ASTExprPrefixUnaryType = "!"
+	ASTExprPrefixUnaryTypeSizeOf      ASTExprPrefixUnaryType = "sizeof"
 )
 
 type ASTExprPrefixUnary struct {
@@ -433,6 +434,9 @@ type ASTExprPrefixUnary struct {
 func (t *ASTExprPrefixUnary) Describe(indent int) string {
 	if t == nil {
 		return ""
+	}
+	if t.typ == ASTExprPrefixUnaryTypeSizeOf {
+		return fmt.Sprintf("%s%s(%s)", genIndent(indent), t.typ, t.lvalue.Describe(0))
 	}
 	return fmt.Sprintf("%s%s%s", genIndent(indent), t.typ, t.lvalue.Describe(0))
 }
@@ -549,6 +553,18 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 		} else {
 			write(w, "lw $v0, 0($v0)")
 		}
+	case ASTExprPrefixUnaryTypeSizeOf:
+		switch varTyp {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeFloat:
+			write(w, "li $v0, 4")
+		case VarTypeChar:
+			write(w, "li $v0, 1")
+		case VarTypeDouble:
+			write(w, "li $v0, 8")
+		default:
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+		}
+		m.LastType = VarTypeInteger
 
 	case ASTExprPrefixUnaryTypePositive:
 	default:

@@ -96,8 +96,12 @@ unary_expression
 	| unary_operator cast_expression {
 		$$.n = &ASTExprPrefixUnary{typ: $1.unaryOperator, lvalue: $2.n}
 	}
-	| SIZEOF unary_expression
-	| SIZEOF '(' type_name ')'
+	| SIZEOF unary_expression {
+		$$.n = &ASTExprPrefixUnary{typ: ASTExprPrefixUnaryTypeSizeOf, lvalue: $2.n}
+	}
+	| SIZEOF '(' type_name ')'{
+		$$.n = &ASTExprPrefixUnary{typ: ASTExprPrefixUnaryTypeSizeOf, lvalue: $3.typ}
+	}
 	;
 
 unary_operator
@@ -306,7 +310,7 @@ struct_declaration
 
 specifier_qualifier_list
 	: type_specifier specifier_qualifier_list
-	| type_specifier
+	| type_specifier {$$.n = $1.n}
 	| type_qualifier specifier_qualifier_list
 	| type_qualifier
 	;
@@ -441,7 +445,7 @@ identifier_list
 	;
 
 type_name
-	: specifier_qualifier_list
+	: specifier_qualifier_list {$$.n = $1.n}
 	| specifier_qualifier_list abstract_declarator
 	;
 
