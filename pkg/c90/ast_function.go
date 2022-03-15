@@ -74,9 +74,10 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	write(w, ".globl %s\n", funcName)
 	write(w, "%s:\n", funcName)
 
-	var variables []*Variable
-	for i, param := range t.decl.parameters.li {
-		stackOffset := 4 * i
+	var arguments []*Variable
+	nextStackOffset := 0
+	for _, param := range t.decl.parameters.li {
+		paramType := *param.specifier.(*ASTType)
 
 		// TODO: at the moment, we're assuming all function parameters are
 		// identifiers, however this is clearly not the case when you have array
@@ -84,13 +85,19 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 		directDecl, ok := param.declarator.(*ASTDirectDeclarator)
 		if ok {
 			v := &Variable{
-				fpOffset: -stackOffset,
+				fpOffset: -nextStackOffset,
 				decl:     nil,
-				typ:      *param.specifier.(*ASTType),
+				typ:      paramType,
 			}
 			m.VariableScopes[len(m.VariableScopes)-1][directDecl.identifier.ident] = v
-			variables = append(variables, v)
+			arguments = append(arguments, v)
 		}
+
+		allocatedSize := 4
+		if paramType.typ == VarTypeDouble {
+			allocatedSize += 4
+		}
+		nextStackOffset += allocatedSize
 	}
 
 	// TODO: do we need to generate mips
@@ -112,11 +119,49 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	write(w, "addiu $sp, $sp, %d", -reserve)
 	defer write(w, "addiu $sp, $sp, %d", reserve)
 
-	for i, param := range variables {
-		// TODO: change size with type
-		write(w, "sw $%d, %d($fp)", i+4, -param.fpOffset)
-		if i == 3 {
+	nextIntReg := 4
+	for i, param := range arguments {
+		if nextIntReg > 7 || (param.typ.typ == VarTypeDouble && nextIntReg == 7) {
+			// We only need to save the first four args max.
 			break
+		}
+
+		firstParamTyp := arguments[0].typ.typ
+		if i < 2 && (firstParamTyp == VarTypeFloat || firstParamTyp == VarTypeDouble) {
+			if param.typ.typ == VarTypeFloat {
+				if i == 0 {
+					write(w, "swc1 $f12, %d($fp)", -param.fpOffset)
+				} else {
+					write(w, "swc1 $f14, %d($fp)", -param.fpOffset)
+				}
+				nextIntReg += 1
+				continue
+			} else if param.typ.typ == VarTypeDouble {
+				if i == 0 {
+					write(w, "swc1 $f12, %d($fp)", -param.fpOffset+4)
+					write(w, "swc1 $f13, %d($fp)", -param.fpOffset)
+					nextIntReg += 2
+				} else {
+					write(w, "swc1 $f14, %d($fp)", -param.fpOffset+4)
+					write(w, "swc1 $f15, %d($fp)", -param.fpOffset)
+					// As doubles are even register aligned
+					nextIntReg += 3
+				}
+				continue
+			}
+		}
+
+		if param.typ.typ == VarTypeDouble {
+			if nextIntReg%2 != 0 {
+				// As doubles are even register aligned
+				nextIntReg += 1
+			}
+			write(w, "sw $%d, %d($fp)", nextIntReg, -param.fpOffset)
+			write(w, "sw $%d, %d($fp)", nextIntReg+1, -param.fpOffset)
+			nextIntReg += 2
+		} else {
+			write(w, "sw $%d, %d($fp)", nextIntReg, -param.fpOffset)
+			nextIntReg += 1
 		}
 	}
 
