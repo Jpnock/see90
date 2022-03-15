@@ -4,3 +4,4 @@ bin/
 *.o
 *.s
 *.core
+test/compiler_tests/extra/
