@@ -86,6 +86,7 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 			v := &Variable{
 				fpOffset: -stackOffset,
 				decl:     nil,
+				typ:      *param.specifier.(*ASTType),
 			}
 			m.VariableScopes[len(m.VariableScopes)-1][directDecl.identifier.ident] = v
 			variables = append(variables, v)
