@@ -214,13 +214,10 @@ func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
 			switch m.LastType {
 			case VarTypeFloat:
 				overflowArgsStackPopAmount += 4
-				write(w, "addiu $sp, $sp, -4")
-				write(w, "swc1 $f0, 0($sp)")
+				stackPushFP(w, "$f0")
 			case VarTypeDouble:
 				overflowArgsStackPopAmount += 8
-				write(w, "addiu $sp, $sp, -8")
-				write(w, "swc1 $f0, 4($sp)")
-				write(w, "swc1 $f1, 0($sp)")
+				stackPushFP(w, "$f0", "$f1")
 			default:
 				// TODO: Sizing is wrong for some types (and probably argument ordering)
 				overflowArgsStackPopAmount += 4

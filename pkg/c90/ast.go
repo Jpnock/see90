@@ -239,42 +239,110 @@ func (t *ASTAssignment) Describe(indent int) string {
 	return fmt.Sprintf("%s%s %s %s", genIndent(indent), t.lval.Describe(0), t.operator, t.value.Describe(0))
 }
 
+func storeToReturnRegister(w io.Writer, typ VarType) {
+	switch typ {
+	case VarTypeFloat:
+		write(w, "swc1 $f0, 0($v1)")
+	case VarTypeDouble:
+		write(w, "swc1 $f0, 4($v1)")
+		write(w, "swc1 $f1, 0($v1)")
+	default:
+		write(w, "sw $v0, 0($v1)")
+	}
+	return
+}
+
 // TODO: investigate at later date
 func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
-	// Load value into $v0
+	// Load value into $v0/$f0
 	t.value.GenerateMIPS(w, m)
 
 	if t.tmpAssign {
 		return
 	}
 
+	rhsType := m.LastType
+
 	// TODO: switch on type
-	stackPush(w, "$v0", 4)
-	t.lval.GenerateMIPS(w, m)
-	stackPop(w, "$v0", 4)
+	switch rhsType {
+	case VarTypeFloat:
+		stackPushFP(w, "$f0")
+		t.lval.GenerateMIPS(w, m)
+		stackPopFP(w, "$f0")
+	case VarTypeDouble:
+		stackPushFP(w, "$f0", "$f1")
+		t.lval.GenerateMIPS(w, m)
+		stackPopFP(w, "$f0", "$f1")
+	default:
+		stackPush(w, "$v0", 4)
+		t.lval.GenerateMIPS(w, m)
+		stackPop(w, "$v0", 4)
+	}
 
 	if t.operator == ASTAssignmentOperatorEquals {
 		// Special case as this does not require a load
-		write(w, "sw $v0, 0($v1)")
+		storeToReturnRegister(w, m.LastType)
 		return
 	}
 
-	write(w, "lw $t0, 0($v1)")
+	switch m.LastType {
+	case VarTypeFloat:
+		write(w, "lwc1 $f2, 0($v1)")
+	case VarTypeDouble:
+		write(w, "lwc1 $f2, 4($v1)")
+		write(w, "lwc1 $f3, 0($v1)")
+	default:
+		write(w, "lw $t0, 0($v1)")
+	}
 
 	switch t.operator {
 	case ASTAssignmentOperatorMulEquals:
-		write(w, "mult $t0, $v0")
-		write(w, "mflo $v0")
+		switch rhsType {
+		case VarTypeFloat:
+			write(w, "mul.s $f0, $f2, $f0")
+		case VarTypeDouble:
+			write(w, "mul.d $f0, $f2, $f0")
+		case VarTypeUnsigned:
+			write(w, "multu $t0, $v0")
+			write(w, "mflo $v0")
+		default:
+			write(w, "mult $t0, $v0")
+			write(w, "mflo $v0")
+		}
 	case ASTAssignmentOperatorDivEquals:
-		write(w, "div $t0, $v0")
-		write(w, "mflo $v0")
+		switch rhsType {
+		case VarTypeFloat:
+			write(w, "div.s $f0, $f2, $f0")
+		case VarTypeDouble:
+			write(w, "div.d $f0, $f2, $f0")
+		case VarTypeUnsigned:
+			write(w, "divu $t0, $v0")
+			write(w, "mflo $v0")
+		default:
+			write(w, "div $t0, $v0")
+			write(w, "mflo $v0")
+		}
+	case ASTAssignmentOperatorAddEquals:
+		switch rhsType {
+		case VarTypeFloat:
+			write(w, "add.s $f0, $f2, $f0")
+		case VarTypeDouble:
+			write(w, "add.d $f0, $f2, $f0")
+		default:
+			write(w, "addu $v0, $t0, $v0")
+		}
+	case ASTAssignmentOperatorSubEquals:
+		switch rhsType {
+		case VarTypeFloat:
+			write(w, "sub.s $f0, $f2, $f0")
+		case VarTypeDouble:
+			write(w, "sub.d $f0, $f2, $f0")
+		default:
+			write(w, "subu $v0, $t0, $v0")
+		}
 	case ASTAssignmentOperatorModEquals:
 		write(w, "div $t0, $v0")
 		write(w, "mfhi $v0")
-	case ASTAssignmentOperatorAddEquals:
-		write(w, "add $v0, $t0, $v0")
-	case ASTAssignmentOperatorSubEquals:
-		write(w, "sub $v0, $t0, $v0")
 	case ASTAssignmentOperatorLeftEquals:
 		write(w, "sllv $v0, $t0, $v0")
 	case ASTAssignmentOperatorRightEquals:
@@ -289,7 +357,7 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 		panic("unhanlded ASTAssignmentOperator")
 	}
 
-	write(w, "sw $v0, 0($v1)")
+	storeToReturnRegister(w, m.LastType)
 }
 
 type ASTArgumentExpressionList []*ASTAssignment
