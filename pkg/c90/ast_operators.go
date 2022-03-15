@@ -286,3 +286,36 @@ func (t *ASTExprSuffixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 		panic("unsupported ASTExprPrefixUnaryType")
 	}
 }
+
+type ASTIndexedExpression struct {
+	lvalue Node
+	index  Node
+}
+
+func (t *ASTIndexedExpression) Describe(indent int) string {
+	if t == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s%s[%s]", genIndent(indent), t.lvalue.Describe(0), t.index.Describe(0))
+}
+
+func (t *ASTIndexedExpression) GenerateMIPS(w io.Writer, m *MIPS) {
+	// Put index into $v0
+	t.index.GenerateMIPS(w, m)
+	stackPush(w, "$v0")
+
+	// Put lvalue into $v0
+	t.lvalue.GenerateMIPS(w, m)
+
+	// Index now in $t0
+	stackPop(w, "$t0")
+
+	// TODO: alter based on type (currently + 4x$t0 for int)
+	write(w, "addiu $v0, $v0, $t0")
+	write(w, "addiu $v0, $v0, $t0")
+	write(w, "addiu $v0, $v0, $t0")
+	write(w, "addiu $v0, $v0, $t0")
+
+	// TODO: change based on type
+	write(w, "lw $v0, 0($v0)")
+}

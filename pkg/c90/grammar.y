@@ -50,8 +50,16 @@ primary_expression
 
 postfix_expression
 	: primary_expression {$$.n = $1.n}
-	| postfix_expression '[' expression ']'
-	| postfix_expression '(' ')' { $$.n = &ASTFunctionCall{function: $1.n} }
+	| postfix_expression '[' expression ']' {
+		// Array indexing
+		$$.n = &ASTIndexedExpression{
+			lvalue: $1.n,
+			index: $3.n,
+		}
+	}
+	| postfix_expression '(' ')' { 
+		$$.n = &ASTFunctionCall{function: $1.n} 
+	}
 	| postfix_expression '(' argument_expression_list ')' { 
 		$$.n = &ASTFunctionCall{
 			function: $1.n,
