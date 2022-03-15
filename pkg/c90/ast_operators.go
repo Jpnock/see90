@@ -665,10 +665,10 @@ func (t *ASTIndexedExpression) GenerateMIPS(w io.Writer, m *MIPS) {
 	stackPop(w, "$t0", 4)
 
 	// TODO: alter based on type (currently + 4x$t0 for int)
-	write(w, "addiu $v0, $v0, $t0")
-	write(w, "addiu $v0, $v0, $t0")
-	write(w, "addiu $v0, $v0, $t0")
-	write(w, "addiu $v0, $v0, $t0")
+	write(w, "addu $v0, $v0, $t0")
+	write(w, "addu $v0, $v0, $t0")
+	write(w, "addu $v0, $v0, $t0")
+	write(w, "addu $v0, $v0, $t0")
 
 	// TODO: change based on type
 	write(w, "lw $v0, 0($v0)")
