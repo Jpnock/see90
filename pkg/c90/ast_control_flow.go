@@ -8,10 +8,10 @@ import (
 )
 
 func checkFloatOrDoubleCondition(w io.Writer, m *MIPS) {
-	falseLabel := m.CreateUniqueLabel("condtion_false")
+	falseLabel := m.CreateUniqueLabel("f0_eq0")
 	finalLabel := m.CreateUniqueLabel("logical_final")
 
-	switch *m.LastType {
+	switch m.LastType {
 	case VarTypeFloat:
 		write(w, "li.s $f10, 0")
 		write(w, "c.eq.s $f10, $f0")
@@ -262,7 +262,6 @@ func (t *ASTIfStatement) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	// Condition
 	t.condition.GenerateMIPS(w, m)
-
 	checkFloatOrDoubleCondition(w, m)
 
 	write(w, "beq $zero, $v0, %s", failureLabel)

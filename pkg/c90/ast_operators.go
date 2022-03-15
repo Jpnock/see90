@@ -86,12 +86,10 @@ func branchOnCondition(w io.Writer, m *MIPS) {
 	write(w, "bc1t %s", trueLabel)
 
 	write(w, "addiu $v0, $zero, 0")
-	write(w, "li.s $f0, 0")
 	write(w, "j %s", finalLabel)
 
 	write(w, "%s:", trueLabel)
 	write(w, "addiu $v0, $zero, 1")
-	write(w, "li.s $f0, 1")
 
 	write(w, "%s:", finalLabel)
 }
@@ -101,52 +99,28 @@ func (t *ASTExprBinary) generateLogical(w io.Writer, m *MIPS) {
 	// Generate LHS -> result in $v0
 	t.lhs.GenerateMIPS(w, m)
 
-	var varTyp = *m.LastType
-
 	failureLabel := m.CreateUniqueLabel("logical_failure")
 	successLabel := m.CreateUniqueLabel("logical_success")
 	finalLabel := m.CreateUniqueLabel("logical_final")
 
 	// Do a comparison to check if true/false and short circuit
+	checkFloatOrDoubleCondition(w, m)
 	switch t.typ {
 	case ASTExprBinaryTypeLogicalAnd:
-		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeChar, VarTypeUnsigned:
-			// Jump to end (failure) if short circuit (false)
-			write(w, "beq $zero, $v0, %s", failureLabel)
-
-		case VarTypeFloat:
-			write(w, "li.s $f10, 0")
-			write(w, "c.eq.s $f0, $f10")
-			write(w, "bc1t %s", failureLabel)
-		case VarTypeDouble:
-			write(w, "li.d $f10, 0")
-			write(w, "c.eq.d $f0, $f10")
-			write(w, "bc1t %s", failureLabel)
-		}
+		// Jump to end (failure) if short circuit (false)
+		write(w, "beq $zero, $v0, %s", failureLabel)
 
 	// TODO: fix
 	case ASTExprBinaryTypeLogicalOr:
-		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeChar, VarTypeUnsigned:
-			// Jump to end (success) if short circuit (true)
-			write(w, "bne $zero, $v0, %s", successLabel)
-
-		case VarTypeFloat:
-			write(w, "li.s $f10, 0")
-			write(w, "c.eq.s $f0, $f10")
-			write(w, "bc1t %s", successLabel)
-		case VarTypeDouble:
-			write(w, "li.d $f10, 0")
-			write(w, "c.eq.d $f0, $f10")
-			write(w, "bc1t %s", successLabel)
-		}
+		// Jump to end (success) if short circuit (true)
+		write(w, "bne $zero, $v0, %s", successLabel)
 
 	default:
 		panic("unknown logical function in ASTExprBinary")
 	}
 
 	t.rhs.GenerateMIPS(w, m)
+	write(w, "j %s", finalLabel)
 
 	write(w, "%s:", successLabel)
 	write(w, "addiu $v0, $zero, 1")
@@ -157,6 +131,7 @@ func (t *ASTExprBinary) generateLogical(w io.Writer, m *MIPS) {
 	write(w, "addiu $v0, $zero, 0")
 
 	write(w, "%s:", finalLabel)
+	m.LastType = VarTypeInteger
 }
 
 func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
@@ -172,7 +147,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Generate LHS -> result in $v0
 	t.lhs.GenerateMIPS(w, m)
 
-	var varTyp = *m.LastType
+	var varTyp = m.LastType
 
 	switch varTyp {
 	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
@@ -313,7 +288,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 		case VarTypeInteger, VarTypeSigned, VarTypeUnsigned, VarTypeChar, VarTypeShort, VarTypeLong:
 			write(w, "sllv $v0, $t0, $t1")
 		case VarTypeFloat, VarTypeDouble:
-			panic("not allowed operation on type float")
+			panic("not allowed operation on type float or double")
 		default:
 			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
@@ -347,6 +322,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 			// Invert the condition (greater than 0) => not equal
 			write(w, "xori $v0, $v0, 1")
 		}
+		m.LastType = VarTypeInteger
 
 	case ASTExprBinaryTypeGreaterThan, ASTExprBinaryTypeLessOrEqual:
 		switch varTyp {
@@ -367,6 +343,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 			// Invert the condition (greater than 0) => not equal
 			write(w, "xori $v0, $v0, 1")
 		}
+		m.LastType = VarTypeInteger
 
 	case ASTExprBinaryTypeEquality, ASTExprBinaryTypeNotEquality:
 		switch varTyp {
@@ -388,6 +365,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 			// Invert the condition (greater than 0) => not equal
 			write(w, "xori $v0, $v0, 1")
 		}
+		m.LastType = VarTypeInteger
 
 	case ASTExprBinaryTypeBitwiseAnd:
 		switch varTyp {
@@ -455,7 +433,7 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	// TODO: work out actual type
 	t.lvalue.GenerateMIPS(w, m)
 
-	var varTyp = *m.LastType
+	var varTyp = m.LastType
 
 	switch t.typ {
 	case ASTExprPrefixUnaryTypeIncrement:
@@ -515,6 +493,7 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 		default:
 			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
+		m.LastType = VarTypeInteger
 
 	case ASTExprPrefixUnaryTypeNegative:
 		switch varTyp {
@@ -591,7 +570,7 @@ func (t *ASTExprSuffixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	t.lvalue.GenerateMIPS(w, m)
 
-	var varTyp = *m.LastType
+	var varTyp = m.LastType
 	// TODO: handle global variables
 
 	switch t.typ {

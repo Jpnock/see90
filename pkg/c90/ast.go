@@ -11,6 +11,7 @@ import (
 type VarType string
 
 const (
+	VarTypeInvalid  VarType = ""
 	VarTypeInteger  VarType = "int"
 	VarTypeLong     VarType = "long"
 	VarTypeShort    VarType = "short"
@@ -192,10 +193,9 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 		panic(fmt.Errorf("identifier `%s` is not in scope", t.ident))
 	}
 
-	varType := variable.typ.typ
-	m.LastType = &varType
+	m.LastType = variable.typ.typ
 
-	switch varType {
+	switch m.LastType {
 	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
 		// Put the value of the variable into $v0
 		write(w, "lw $v0, %d($fp)", -variable.fpOffset)
@@ -336,6 +336,9 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 		decl:     t,
 		typ:      *t.typ,
 	}
+
+	m.LastType = t.typ.typ
+
 	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
 	if t.initVal != nil {
 		t.initVal.GenerateMIPS(w, m)
@@ -370,8 +373,32 @@ func (t *ASTConstant) Describe(indent int) string {
 	return fmt.Sprintf("%s%s", genIndent(indent), t.value)
 }
 
+// func parseInt(val string) (int, error) {
+// 	if len(val) == 0 {
+// 		panic("tried to parse empty int")
+// 	}
+
+// 	if len(val) > 1 && val[0] == '0' && (val[1] == 'x' || val[1] == 'X') {
+//         hexstr := val[2:]
+// 		strconv.ParseInt(hexstr, )
+// 		// Hex
+// 		return
+// 	}
+
+// 	if len(val) > 1 && val[0] == '0' {
+// 		// Octal
+// 		return
+// 	}
+
+// 	// Decimal
+// }
+
 // TODO: investigate at later date
 func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
+	if len(t.value) == 0 {
+		panic("empty ASTConstant")
+	}
+
 	// TODO: fix this to support other types etc.
 
 	// TODO: currently doesnt detect chars declard with an int not a char literal
@@ -381,41 +408,54 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 			panic(fmt.Errorf("character literal unquote gave error: %v", err))
 		}
 		write(w, "li $v0, %d", unquotedString[0])
-		VarType := VarTypeChar
-		m.LastType = &VarType
+		m.LastType = VarTypeChar
 		return
 	}
 
 	lastIdx := len(t.value) - 1
-	if len(t.value) > 0 {
-		// Try to parse the constant as a float (or double) and load
-		// it into $f0.
-		if t.value[lastIdx] == 'f' || t.value[lastIdx] == 'F' {
-			// Appendix A, pg. 194 states that all numbers are doubles (or long doubles)
-			// unless suffixed with f or F, which implies they are floats.
-			f32, err := strconv.ParseFloat(t.value[:lastIdx-1], 32)
-			if err == nil {
-				write(w, "li.s $f0, %f", float32(f32))
-				VarType := VarTypeFloat
-				m.LastType = &VarType
-				return
-			}
-		} else {
-			f64, err := strconv.ParseFloat(t.value, 64)
-			if err == nil {
-				write(w, "li.d $f0, %f", f64)
-				VarType := VarTypeDouble
-				m.LastType = &VarType
-				return
-			}
+
+	// Try to parse the constant as a float (or double) and load
+	// it into $f0.
+	if t.value[lastIdx] == 'f' || t.value[lastIdx] == 'F' {
+		// Appendix A, pg. 194 states that all numbers are doubles (or long doubles)
+		// unless suffixed with f or F, which implies they are floats.
+		f32, err := strconv.ParseFloat(t.value[:lastIdx], 32)
+		if err != nil {
+			panic("invalid floating point constant")
 		}
+		write(w, "li.s $f0, %f", float32(f32))
+		m.LastType = VarTypeFloat
+		return
 	}
 
-	intValue, _ := strconv.Atoi(t.value)
-	write(w, "li $v0, %d", intValue)
-	VarType := VarTypeInteger
-	m.LastType = &VarType
+	if t.value[lastIdx] == 'u' || t.value[lastIdx] == 'U' {
+		// Appendix A, pg. 194 states that all numbers are doubles (or long doubles)
+		// unless suffixed with f or F, which implies they are floats.
+		intValue, err := strconv.ParseUint(t.value[:lastIdx], 0, 32)
+		if err != nil {
+			panic("unable to convert unsinged to int")
+		}
+		write(w, "li $v0, %d", intValue)
+		return
+	}
 
+	intValue, err := strconv.ParseInt(t.value, 0, 32)
+	if err == nil {
+		// Could be an integer or double (assume integer as all operations
+		// can be performed on this type; it will also be overwritten by
+		// ASTDecl/ASTIdentifier etc.)
+		write(w, "li $v0, %d", intValue)
+		m.LastType = VarTypeInteger
+	} else {
+		// Not an int
+		m.LastType = VarTypeDouble
+	}
+
+	f64, err := strconv.ParseFloat(t.value, 64)
+	if err != nil {
+		panic("ASTConstant expected double")
+	}
+	write(w, "li.d $f0, %f", f64)
 }
 
 type ASTStringLiteral struct {
