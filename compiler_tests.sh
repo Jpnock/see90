@@ -2,6 +2,8 @@
 
 set -uo pipefail
 
+shopt -s globstar
+
 make
 docker build -t see90 .
 
