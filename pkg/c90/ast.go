@@ -478,7 +478,9 @@ func (t *ASTType) Describe(indent int) string {
 }
 
 // TODO: investigate at later date
-func (t *ASTType) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTType) GenerateMIPS(w io.Writer, m *MIPS) {
+	m.LastType = t.typ
+}
 
 type ASTParameterList struct {
 	li      []*ASTParameterDeclaration
