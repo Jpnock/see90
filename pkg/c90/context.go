@@ -9,6 +9,14 @@ type Variable struct {
 	fpOffset int
 	decl     *ASTDecl
 	typ      ASTType
+	isGlobal bool
+}
+
+func (v *Variable) GlobalLabel() Label {
+	if !v.isGlobal {
+		panic("variable not global")
+	}
+	return Label("__global_var__" + v.decl.decl.identifier.ident)
 }
 
 type MIPSContext struct {

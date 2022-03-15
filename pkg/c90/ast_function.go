@@ -71,6 +71,7 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	returnLabel := m.ReturnScopes.Peek()
 
 	funcName := t.Name()
+	write(w, ".text")
 	write(w, ".globl %s\n", funcName)
 	write(w, "%s:\n", funcName)
 
