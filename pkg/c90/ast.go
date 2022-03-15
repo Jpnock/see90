@@ -8,6 +8,22 @@ import (
 	"strings"
 )
 
+type VarType string
+
+const (
+	VarTypeInvalid  VarType = ""
+	VarTypeInteger  VarType = "int"
+	VarTypeLong     VarType = "long"
+	VarTypeShort    VarType = "short"
+	VarTypeFloat    VarType = "float"
+	VarTypeDouble   VarType = "double"
+	VarTypeChar     VarType = "char"
+	VarTypeVoid     VarType = "void"
+	VarTypeSigned   VarType = "signed"
+	VarTypeUnsigned VarType = "unsigned"
+	VarTypeTypeName VarType = "typename"
+)
+
 type Node interface {
 	Describe(indent int) string
 	GenerateMIPS(w io.Writer, m *MIPS)
@@ -177,11 +193,29 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 		panic(fmt.Errorf("identifier `%s` is not in scope", t.ident))
 	}
 
-	// Put the value of the variable into $v0
-	write(w, "lw $v0, %d($fp)", -variable.fpOffset)
+	m.LastType = variable.typ.typ
 
+	switch m.LastType {
+	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+		// Put the value of the variable into $v0
+		write(w, "lw $v0, %d($fp)", -variable.fpOffset)
+
+	case VarTypeChar:
+		write(w, "lb $v0, %d($fp)", -variable.fpOffset)
+
+	case VarTypeFloat:
+		write(w, "lwc1 $f0, %d($fp)", -variable.fpOffset)
+
+	case VarTypeDouble:
+		write(w, "lwc1 $f0, %d($fp)", -variable.fpOffset+4)
+		write(w, "lwc1 $f1, %d($fp)", -variable.fpOffset)
+
+	default:
+		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+	}
 	// Put the address of the variable into $v1
 	write(w, "addiu $v1, $fp, %d", -variable.fpOffset)
+
 }
 
 type ASTAssignment struct {
@@ -214,9 +248,10 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 		return
 	}
 
-	stackPush(w, "$v0")
+	// TODO: switch on type
+	stackPush(w, "$v0", 4)
 	t.lval.GenerateMIPS(w, m)
-	stackPop(w, "$v0")
+	stackPop(w, "$v0", 4)
 
 	if t.operator == ASTAssignmentOperatorEquals {
 		// Special case as this does not require a load
@@ -299,17 +334,31 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	declVar := &Variable{
 		fpOffset: m.Context.GetNewLocalOffset(),
 		decl:     t,
+		typ:      *t.typ,
 	}
 
 	if t.decl == nil || t.decl.identifier == nil {
 		// TODO: handle this case (mostly caused by function prototypes).
 		return
 	}
+	m.LastType = t.typ.typ
 
 	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
 	if t.initVal != nil {
 		t.initVal.GenerateMIPS(w, m)
-		write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
+		switch t.typ.typ {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+			write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
+		case VarTypeChar:
+			write(w, "sb $v0, %d($fp)", -declVar.fpOffset)
+		case VarTypeFloat:
+			write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset)
+		case VarTypeDouble:
+			write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+4)
+			write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset)
+		default:
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+		}
 	}
 }
 
@@ -321,15 +370,76 @@ func (t *ASTConstant) Describe(indent int) string {
 	if t == nil {
 		return ""
 	}
+	if t.value[0] == '\'' {
+		ascii := int(([]rune(t.value))[1])
+		return fmt.Sprintf("%s%d", genIndent(indent), ascii)
+	}
 	return fmt.Sprintf("%s%s", genIndent(indent), t.value)
 }
 
 // TODO: investigate at later date
 func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
+	if len(t.value) == 0 {
+		panic("empty ASTConstant")
+	}
+
 	// TODO: fix this to support other types etc.
 
-	intValue, _ := strconv.Atoi(t.value)
-	write(w, "li $v0, %d", intValue)
+	// TODO: currently doesnt detect chars declard with an int not a char literal
+	if t.value[0] == '\'' {
+		unquotedString, err := strconv.Unquote(t.value)
+		if err != nil {
+			panic(fmt.Errorf("character literal unquote gave error: %v", err))
+		}
+		write(w, "li $v0, %d", unquotedString[0])
+		m.LastType = VarTypeChar
+		return
+	}
+
+	lastIdx := len(t.value) - 1
+
+	// Try to parse the constant as a float (or double) and load
+	// it into $f0.
+	if t.value[lastIdx] == 'f' || t.value[lastIdx] == 'F' {
+		// Appendix A, pg. 194 states that all numbers are doubles (or long doubles)
+		// unless suffixed with f or F, which implies they are floats.
+		f32, err := strconv.ParseFloat(t.value[:lastIdx], 32)
+		if err != nil {
+			panic("invalid floating point constant")
+		}
+		write(w, "li.s $f0, %f", float32(f32))
+		m.LastType = VarTypeFloat
+		return
+	}
+
+	if t.value[lastIdx] == 'u' || t.value[lastIdx] == 'U' {
+		// Appendix A, pg. 194 states that all numbers are doubles (or long doubles)
+		// unless suffixed with f or F, which implies they are floats.
+		intValue, err := strconv.ParseUint(t.value[:lastIdx], 0, 32)
+		if err != nil {
+			panic("unable to convert unsinged to int")
+		}
+		write(w, "li $v0, %d", intValue)
+		return
+	}
+
+	intValue, err := strconv.ParseInt(t.value, 0, 32)
+	if err == nil {
+		// Could be an integer or double (assume integer as all operations
+		// can be performed on this type; it will also be overwritten by
+		// ASTDecl/ASTIdentifier etc.)
+		write(w, "li $v0, %d", intValue)
+		m.LastType = VarTypeInteger
+	} else {
+		// Not an int
+		m.LastType = VarTypeDouble
+	}
+
+	f64, err := strconv.ParseFloat(t.value, 64)
+	if err != nil {
+		panic("ASTConstant expected double")
+	}
+	write(w, "li.d $f0, %f", f64)
 }
 
 type ASTStringLiteral struct {
@@ -356,14 +466,15 @@ func (t ASTPanic) Describe(indent int) string {
 func (t ASTPanic) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 type ASTType struct {
-	typ string
+	typ     VarType
+	typName string
 }
 
 func (t *ASTType) Describe(indent int) string {
 	if t == nil {
 		panic("ASTType is nil")
 	}
-	return t.typ
+	return string(t.typ)
 }
 
 // TODO: investigate at later date

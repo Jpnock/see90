@@ -8,6 +8,7 @@ type Variable struct {
 	// fpOffset is the amount of subtract from fp to access the variable.
 	fpOffset int
 	decl     *ASTDecl
+	typ      ASTType
 }
 
 type MIPSContext struct {
@@ -27,6 +28,8 @@ type MIPS struct {
 	CaseLabelScopes CaseLabelScopeStack
 	ReturnScopes    ReturnScopeStack
 
+	LastType VarType
+
 	uniqueLabelNumber uint
 }
 
@@ -38,6 +41,7 @@ func NewMIPS() *MIPS {
 		},
 		Context:           &MIPSContext{},
 		LabelScopes:       nil,
+		LastType:          VarTypeInvalid,
 		uniqueLabelNumber: 0,
 	}
 }

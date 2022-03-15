@@ -7,6 +7,32 @@ import (
 	"strings"
 )
 
+func checkFloatOrDoubleCondition(w io.Writer, m *MIPS) {
+	falseLabel := m.CreateUniqueLabel("f0_eq0")
+	finalLabel := m.CreateUniqueLabel("logical_final")
+
+	switch m.LastType {
+	case VarTypeFloat:
+		write(w, "li.s $f10, 0")
+		write(w, "c.eq.s $f10, $f0")
+	case VarTypeDouble:
+		write(w, "li.d $f10, 0")
+		write(w, "c.eq.d $f10, $f0")
+	default:
+		return
+	}
+
+	write(w, "bc1t %s", falseLabel)
+
+	write(w, "addiu $v0, $zero, 1")
+	write(w, "j %s", finalLabel)
+
+	write(w, "%s:", falseLabel)
+	write(w, "addiu $v0, $zero, 0")
+
+	write(w, "%s:", finalLabel)
+}
+
 type ASTWhileLoop struct {
 	condition Node
 	body      Node
@@ -47,6 +73,7 @@ func (t *ASTWhileLoop) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Condition
 	write(w, "%s:", conditionLabel)
 	t.condition.GenerateMIPS(w, m)
+	checkFloatOrDoubleCondition(w, m)
 	write(w, "beq $zero, $v0, %s", bottomLabel)
 
 	// Body
@@ -106,6 +133,7 @@ func (t *ASTDoWhileLoop) GenerateMIPS(w io.Writer, m *MIPS) {
 	write(w, "%s:", conditionLabel)
 	t.condition.GenerateMIPS(w, m)
 
+	checkFloatOrDoubleCondition(w, m)
 	write(w, "beq $zero, $v0, %s", bottomLabel)
 
 	write(w, "j %s", bodyLabel)
@@ -175,6 +203,7 @@ func (t *ASTForLoop) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Condition
 	write(w, "%s:", conditionLabel)
 	t.condition.GenerateMIPS(w, m)
+	checkFloatOrDoubleCondition(w, m)
 	write(w, "beq $zero, $v0, %s", bottomLabel)
 
 	// Body
@@ -233,6 +262,8 @@ func (t *ASTIfStatement) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	// Condition
 	t.condition.GenerateMIPS(w, m)
+	checkFloatOrDoubleCondition(w, m)
+
 	write(w, "beq $zero, $v0, %s", failureLabel)
 
 	// After body, jump to end (to ignore the else clause)

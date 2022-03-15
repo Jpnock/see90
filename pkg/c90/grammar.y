@@ -267,21 +267,21 @@ storage_class_specifier
 	;
 
 type_specifier
-	: VOID { $$.typ = &ASTType{typ: "void"} }
-	| CHAR { $$.typ = &ASTType{typ: "char"} }
+	: VOID { $$.typ = &ASTType{typ: VarTypeVoid} }
+	| CHAR { $$.typ = &ASTType{typ: VarTypeChar} }
 	| SHORT { 
 		// https://stackoverflow.com/a/697531
-		$$.typ = &ASTType{typ: "short"}
+		$$.typ = &ASTType{typ: VarTypeShort}
 	  }
-	| INT { $$.typ = &ASTType{typ: "int"} }
-	| LONG { $$.typ = &ASTType{typ: "long"} }
-	| FLOAT { $$.typ = &ASTType{typ: "float"} }
-	| DOUBLE { $$.typ = &ASTType{typ: "double"} }
-	| SIGNED { $$.typ = &ASTType{typ: "signed"} }
-	| UNSIGNED { $$.typ = &ASTType{typ: "unsigned"} }
+	| INT { $$.typ = &ASTType{typ: VarTypeInteger} }
+	| LONG { $$.typ = &ASTType{typ: VarTypeLong} }
+	| FLOAT { $$.typ = &ASTType{typ: VarTypeFloat} }
+	| DOUBLE { $$.typ = &ASTType{typ: VarTypeDouble} }
+	| SIGNED { $$.typ = &ASTType{typ: VarTypeSigned} }
+	| UNSIGNED { $$.typ = &ASTType{typ: VarTypeUnsigned} }
 	| struct_or_union_specifier
 	| enum_specifier
-	| TYPE_NAME { $$.typ = &ASTType{typ: $1.str} }
+	| TYPE_NAME { $$.typ = &ASTType{typ: VarTypeTypeName, typName: $1.str} }
 	;
 
 struct_or_union_specifier
