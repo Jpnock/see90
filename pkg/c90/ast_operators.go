@@ -98,39 +98,49 @@ func branchOnCondition(w io.Writer, m *MIPS) {
 func (t *ASTExprBinary) generateLogical(w io.Writer, m *MIPS) {
 	// Generate LHS -> result in $v0
 	t.lhs.GenerateMIPS(w, m)
+	checkFloatOrDoubleCondition(w, m)
 
 	failureLabel := m.CreateUniqueLabel("logical_failure")
 	successLabel := m.CreateUniqueLabel("logical_success")
-	finalLabel := m.CreateUniqueLabel("logical_final")
+	endLabel := m.CreateUniqueLabel("logical_end")
 
 	// Do a comparison to check if true/false and short circuit
-	checkFloatOrDoubleCondition(w, m)
 	switch t.typ {
 	case ASTExprBinaryTypeLogicalAnd:
 		// Jump to end (failure) if short circuit (false)
 		write(w, "beq $zero, $v0, %s", failureLabel)
-
-	// TODO: fix
 	case ASTExprBinaryTypeLogicalOr:
 		// Jump to end (success) if short circuit (true)
 		write(w, "bne $zero, $v0, %s", successLabel)
-
 	default:
 		panic("unknown logical function in ASTExprBinary")
 	}
 
+	// Generate RHS -> result in $v0
 	t.rhs.GenerateMIPS(w, m)
-	write(w, "j %s", finalLabel)
+	checkFloatOrDoubleCondition(w, m)
 
-	write(w, "%s:", successLabel)
-	write(w, "addiu $v0, $zero, 1")
-	write(w, "j %s", finalLabel)
+	switch t.typ {
+	case ASTExprBinaryTypeLogicalAnd:
+		// Jump to end (failure) if short circuit (false)
+		write(w, "beq $zero, $v0, %s", failureLabel)
+		// Both LHS and RHS are non-zero, so jump to success
+		write(w, "j %s", successLabel)
+	case ASTExprBinaryTypeLogicalOr:
+		// Jump to end (success) if short circuit (true)
+		write(w, "bne $zero, $v0, %s", successLabel)
+	default:
+		panic("unknown logical function in ASTExprBinary")
+	}
 
 	// Jump to this section if the condition is not met
 	write(w, "%s:", failureLabel)
 	write(w, "addiu $v0, $zero, 0")
+	write(w, "j %s", endLabel)
 
-	write(w, "%s:", finalLabel)
+	write(w, "%s:", successLabel)
+	write(w, "addiu $v0, $zero, 1")
+	write(w, "%s:", endLabel)
 	m.LastType = VarTypeInteger
 }
 
@@ -629,4 +639,37 @@ func (t *ASTExprSuffixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	default:
 		panic("unsupported ASTExprPrefixUnaryType")
 	}
+}
+
+type ASTIndexedExpression struct {
+	lvalue Node
+	index  Node
+}
+
+func (t *ASTIndexedExpression) Describe(indent int) string {
+	if t == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s%s[%s]", genIndent(indent), t.lvalue.Describe(0), t.index.Describe(0))
+}
+
+func (t *ASTIndexedExpression) GenerateMIPS(w io.Writer, m *MIPS) {
+	// Put index into $v0
+	t.index.GenerateMIPS(w, m)
+	stackPush(w, "$v0")
+
+	// Put lvalue into $v0
+	t.lvalue.GenerateMIPS(w, m)
+
+	// Index now in $t0
+	stackPop(w, "$t0")
+
+	// TODO: alter based on type (currently + 4x$t0 for int)
+	write(w, "addiu $v0, $v0, $t0")
+	write(w, "addiu $v0, $v0, $t0")
+	write(w, "addiu $v0, $v0, $t0")
+	write(w, "addiu $v0, $v0, $t0")
+
+	// TODO: change based on type
+	write(w, "lw $v0, 0($v0)")
 }

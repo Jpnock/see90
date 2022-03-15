@@ -898,15 +898,25 @@ yydefault:
 		{
 			yyVAL.n = yyDollar[1].n
 		}
+	case 6:
+		yyDollar = yyS[yypt-4 : yypt+1]
+//line pkg/c90/grammar.y:53
+		{
+			// Array indexing
+			yyVAL.n = &ASTIndexedExpression{
+				lvalue: yyDollar[1].n,
+				index:  yyDollar[3].n,
+			}
+		}
 	case 7:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:54
+//line pkg/c90/grammar.y:60
 		{
 			yyVAL.n = &ASTFunctionCall{function: yyDollar[1].n}
 		}
 	case 8:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line pkg/c90/grammar.y:55
+//line pkg/c90/grammar.y:63
 		{
 			yyVAL.n = &ASTFunctionCall{
 				function:  yyDollar[1].n,
@@ -915,30 +925,30 @@ yydefault:
 		}
 	case 10:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:62
+//line pkg/c90/grammar.y:70
 		{
 		}
 	case 11:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:63
+//line pkg/c90/grammar.y:71
 		{
 			yyVAL.n = &ASTExprSuffixUnary{typ: ASTExprSuffixUnaryTypeIncrement, lvalue: yyDollar[1].n}
 		}
 	case 12:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:66
+//line pkg/c90/grammar.y:74
 		{
 			yyVAL.n = &ASTExprSuffixUnary{typ: ASTExprSuffixUnaryTypeDecrement, lvalue: yyDollar[1].n}
 		}
 	case 13:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:72
+//line pkg/c90/grammar.y:80
 		{
 			yyVAL.n = ASTArgumentExpressionList{yyDollar[1].n.(*ASTAssignment)}
 		}
 	case 14:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:73
+//line pkg/c90/grammar.y:81
 		{
 			li := yyDollar[1].n.(ASTArgumentExpressionList)
 			li = append(li, yyDollar[3].n.(*ASTAssignment))
@@ -946,247 +956,247 @@ yydefault:
 		}
 	case 15:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:81
+//line pkg/c90/grammar.y:89
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 16:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:82
+//line pkg/c90/grammar.y:90
 		{
 			yyVAL.n = &ASTExprPrefixUnary{typ: ASTExprPrefixUnaryTypeIncrement, lvalue: yyDollar[2].n}
 		}
 	case 17:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:85
+//line pkg/c90/grammar.y:93
 		{
 			yyVAL.n = &ASTExprPrefixUnary{typ: ASTExprPrefixUnaryTypeDecrement, lvalue: yyDollar[2].n}
 		}
 	case 18:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:88
+//line pkg/c90/grammar.y:96
 		{
 			yyVAL.n = &ASTExprPrefixUnary{typ: yyDollar[1].unaryOperator, lvalue: yyDollar[2].n}
 		}
 	case 21:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:96
+//line pkg/c90/grammar.y:104
 		{
 			yyVAL.unaryOperator = ASTExprPrefixUnaryTypeAddressOf
 		}
 	case 22:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:97
+//line pkg/c90/grammar.y:105
 		{
 			yyVAL.unaryOperator = ASTExprPrefixUnaryTypeDereference
 		}
 	case 23:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:98
+//line pkg/c90/grammar.y:106
 		{
 			yyVAL.unaryOperator = ASTExprPrefixUnaryTypePositive
 		}
 	case 24:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:99
+//line pkg/c90/grammar.y:107
 		{
 			yyVAL.unaryOperator = ASTExprPrefixUnaryTypeNegative
 		}
 	case 25:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:100
+//line pkg/c90/grammar.y:108
 		{
 			yyVAL.unaryOperator = ASTExprPrefixUnaryTypeNot
 		}
 	case 26:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:101
+//line pkg/c90/grammar.y:109
 		{
 			yyVAL.unaryOperator = ASTExprPrefixUnaryTypeInvert
 		}
 	case 27:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:105
+//line pkg/c90/grammar.y:113
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 29:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:110
+//line pkg/c90/grammar.y:118
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 30:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:111
+//line pkg/c90/grammar.y:119
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeMul}
 		}
 	case 31:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:112
+//line pkg/c90/grammar.y:120
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeDiv}
 		}
 	case 32:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:113
+//line pkg/c90/grammar.y:121
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeMod}
 		}
 	case 33:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:117
+//line pkg/c90/grammar.y:125
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 34:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:118
+//line pkg/c90/grammar.y:126
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeAdd}
 		}
 	case 35:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:119
+//line pkg/c90/grammar.y:127
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeSub}
 		}
 	case 36:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:123
+//line pkg/c90/grammar.y:131
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 37:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:124
+//line pkg/c90/grammar.y:132
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeLeftShift}
 		}
 	case 38:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:125
+//line pkg/c90/grammar.y:133
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeRightShift}
 		}
 	case 39:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:129
+//line pkg/c90/grammar.y:137
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 40:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:130
+//line pkg/c90/grammar.y:138
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeLessThan}
 		}
 	case 41:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:131
+//line pkg/c90/grammar.y:139
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeGreaterThan}
 		}
 	case 42:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:132
+//line pkg/c90/grammar.y:140
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeLessOrEqual}
 		}
 	case 43:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:133
+//line pkg/c90/grammar.y:141
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeGreaterOrEqual}
 		}
 	case 44:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:137
+//line pkg/c90/grammar.y:145
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 45:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:138
+//line pkg/c90/grammar.y:146
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeEquality}
 		}
 	case 46:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:139
+//line pkg/c90/grammar.y:147
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeNotEquality}
 		}
 	case 47:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:143
+//line pkg/c90/grammar.y:151
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 48:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:144
+//line pkg/c90/grammar.y:152
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeBitwiseAnd}
 		}
 	case 49:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:148
+//line pkg/c90/grammar.y:156
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 50:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:149
+//line pkg/c90/grammar.y:157
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeXor}
 		}
 	case 51:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:153
+//line pkg/c90/grammar.y:161
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 52:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:154
+//line pkg/c90/grammar.y:162
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeBitwiseOr}
 		}
 	case 53:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:158
+//line pkg/c90/grammar.y:166
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 54:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:159
+//line pkg/c90/grammar.y:167
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeLogicalAnd}
 		}
 	case 55:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:163
+//line pkg/c90/grammar.y:171
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 56:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:164
+//line pkg/c90/grammar.y:172
 		{
 			yyVAL.n = &ASTExprBinary{lhs: yyDollar[1].n, rhs: yyDollar[3].n, typ: ASTExprBinaryTypeLogicalOr}
 		}
 	case 57:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:168
+//line pkg/c90/grammar.y:176
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 58:
 		yyDollar = yyS[yypt-5 : yypt+1]
-//line pkg/c90/grammar.y:169
+//line pkg/c90/grammar.y:177
 		{
 			yyVAL.n = &ASTIfStatement{
 				condition: yyDollar[1].n,
@@ -1197,91 +1207,91 @@ yydefault:
 		}
 	case 59:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:180
+//line pkg/c90/grammar.y:188
 		{
 			yyVAL.n = &ASTAssignment{value: yyDollar[1].n, tmpAssign: true}
 		}
 	case 60:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:183
+//line pkg/c90/grammar.y:191
 		{
 			yyVAL.n = &ASTAssignment{lval: yyDollar[1].n, operator: yyDollar[2].assignmentOperator, value: yyDollar[3].n}
 		}
 	case 61:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:189
+//line pkg/c90/grammar.y:197
 		{
 			yyVAL.assignmentOperator = ASTAssignmentOperatorEquals
 		}
 	case 62:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:190
+//line pkg/c90/grammar.y:198
 		{
 			yyVAL.assignmentOperator = ASTAssignmentOperatorMulEquals
 		}
 	case 63:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:191
+//line pkg/c90/grammar.y:199
 		{
 			yyVAL.assignmentOperator = ASTAssignmentOperatorDivEquals
 		}
 	case 64:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:192
+//line pkg/c90/grammar.y:200
 		{
 			yyVAL.assignmentOperator = ASTAssignmentOperatorModEquals
 		}
 	case 65:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:193
+//line pkg/c90/grammar.y:201
 		{
 			yyVAL.assignmentOperator = ASTAssignmentOperatorAddEquals
 		}
 	case 66:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:194
+//line pkg/c90/grammar.y:202
 		{
 			yyVAL.assignmentOperator = ASTAssignmentOperatorSubEquals
 		}
 	case 67:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:195
+//line pkg/c90/grammar.y:203
 		{
 			yyVAL.assignmentOperator = ASTAssignmentOperatorLeftEquals
 		}
 	case 68:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:196
+//line pkg/c90/grammar.y:204
 		{
 			yyVAL.assignmentOperator = ASTAssignmentOperatorRightEquals
 		}
 	case 69:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:197
+//line pkg/c90/grammar.y:205
 		{
 			yyVAL.assignmentOperator = ASTAssignmentOperatorAndEquals
 		}
 	case 70:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:198
+//line pkg/c90/grammar.y:206
 		{
 			yyVAL.assignmentOperator = ASTAssignmentOperatorXorEquals
 		}
 	case 71:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:199
+//line pkg/c90/grammar.y:207
 		{
 			yyVAL.assignmentOperator = ASTAssignmentOperatorOrEquals
 		}
 	case 72:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:203
+//line pkg/c90/grammar.y:211
 		{
 			yyVAL.n = ASTExpression{yyDollar[1].n.(*ASTAssignment)}
 		}
 	case 73:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:206
+//line pkg/c90/grammar.y:214
 		{
 			li := yyDollar[1].n.(ASTExpression)
 			li = append(li, yyDollar[3].n.(*ASTAssignment))
@@ -1289,20 +1299,20 @@ yydefault:
 		}
 	case 74:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:214
+//line pkg/c90/grammar.y:222
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 75:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:218
+//line pkg/c90/grammar.y:226
 		{
 			fmt.Fprintf(os.Stderr, "Ignoring declaration specifier without init declaration list\n")
 			yyVAL.n = ASTDeclaratorList{}
 		}
 	case 76:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:222
+//line pkg/c90/grammar.y:230
 		{
 			for _, entry := range yyDollar[2].n.(ASTDeclaratorList) {
 				entry.typ = yyDollar[1].typ
@@ -1311,19 +1321,19 @@ yydefault:
 		}
 	case 79:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:233
+//line pkg/c90/grammar.y:241
 		{
 			yyVAL.n = yyDollar[1].typ
 		}
 	case 83:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:240
+//line pkg/c90/grammar.y:248
 		{
 			yyVAL.n = ASTDeclaratorList{yyDollar[1].n.(*ASTDecl)}
 		}
 	case 84:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:241
+//line pkg/c90/grammar.y:249
 		{
 			li := yyDollar[1].n.(ASTDeclaratorList)
 			li = append(li, yyDollar[3].n.(*ASTDecl))
@@ -1331,93 +1341,93 @@ yydefault:
 		}
 	case 85:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:249
+//line pkg/c90/grammar.y:257
 		{
 			yyVAL.n = &ASTDecl{decl: yyDollar[1].n.(*ASTDirectDeclarator)}
 		}
 	case 86:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:250
+//line pkg/c90/grammar.y:258
 		{
 			yyVAL.n = &ASTDecl{decl: yyDollar[1].n.(*ASTDirectDeclarator), initVal: yyDollar[3].n}
 		}
 	case 92:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:262
+//line pkg/c90/grammar.y:270
 		{
 			yyVAL.typ = &ASTType{typ: VarTypeVoid}
 		}
 	case 93:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:263
+//line pkg/c90/grammar.y:271
 		{
 			yyVAL.typ = &ASTType{typ: VarTypeChar}
 		}
 	case 94:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:264
+//line pkg/c90/grammar.y:272
 		{
 			// https://stackoverflow.com/a/697531
 			yyVAL.typ = &ASTType{typ: VarTypeShort}
 		}
 	case 95:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:268
+//line pkg/c90/grammar.y:276
 		{
 			yyVAL.typ = &ASTType{typ: VarTypeInteger}
 		}
 	case 96:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:269
+//line pkg/c90/grammar.y:277
 		{
 			yyVAL.typ = &ASTType{typ: VarTypeLong}
 		}
 	case 97:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:270
+//line pkg/c90/grammar.y:278
 		{
 			yyVAL.typ = &ASTType{typ: VarTypeFloat}
 		}
 	case 98:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:271
+//line pkg/c90/grammar.y:279
 		{
 			yyVAL.typ = &ASTType{typ: VarTypeDouble}
 		}
 	case 99:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:272
+//line pkg/c90/grammar.y:280
 		{
 			yyVAL.typ = &ASTType{typ: VarTypeSigned}
 		}
 	case 100:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:273
+//line pkg/c90/grammar.y:281
 		{
 			yyVAL.typ = &ASTType{typ: VarTypeUnsigned}
 		}
 	case 103:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:276
+//line pkg/c90/grammar.y:284
 		{
 			yyVAL.typ = &ASTType{typ: VarTypeTypeName, typName: yyDollar[1].str}
 		}
 	case 130:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:339
+//line pkg/c90/grammar.y:347
 		{
 			yyDollar[2].n.(*ASTDirectDeclarator).isPointer = true
 			yyVAL.n = yyDollar[2].n
 		}
 	case 131:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:343
+//line pkg/c90/grammar.y:351
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 132:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:347
+//line pkg/c90/grammar.y:355
 		{
 			yyVAL.n = &ASTDirectDeclarator{
 				identifier: &ASTIdentifier{
@@ -1427,7 +1437,7 @@ yydefault:
 		}
 	case 136:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line pkg/c90/grammar.y:357
+//line pkg/c90/grammar.y:365
 		{
 			// Function declaration with arguments
 			yyVAL.n = &ASTDirectDeclarator{
@@ -1437,13 +1447,13 @@ yydefault:
 		}
 	case 137:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line pkg/c90/grammar.y:364
+//line pkg/c90/grammar.y:372
 		{
 			// Function declaration for old K&R style funcs
 		}
 	case 138:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:367
+//line pkg/c90/grammar.y:375
 		{
 			// Function declaration with no arguments
 			yyVAL.n = &ASTDirectDeclarator{
@@ -1453,13 +1463,13 @@ yydefault:
 		}
 	case 145:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:389
+//line pkg/c90/grammar.y:397
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 146:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:392
+//line pkg/c90/grammar.y:400
 		{
 			paramList := yyDollar[1].n.(*ASTParameterList)
 			paramList.elipsis = true
@@ -1467,7 +1477,7 @@ yydefault:
 		}
 	case 147:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:400
+//line pkg/c90/grammar.y:408
 		{
 			yyVAL.n = &ASTParameterList{
 				li: []*ASTParameterDeclaration{
@@ -1477,7 +1487,7 @@ yydefault:
 		}
 	case 148:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:407
+//line pkg/c90/grammar.y:415
 		{
 			li := yyDollar[1].n.(*ASTParameterList)
 			li.li = append(li.li, yyDollar[3].n.(*ASTParameterDeclaration))
@@ -1485,7 +1495,7 @@ yydefault:
 		}
 	case 149:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:415
+//line pkg/c90/grammar.y:423
 		{
 			yyVAL.n = &ASTParameterDeclaration{
 				specifier:  yyDollar[1].n,
@@ -1494,7 +1504,7 @@ yydefault:
 		}
 	case 151:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:422
+//line pkg/c90/grammar.y:430
 		{
 			yyVAL.n = &ASTParameterDeclaration{
 				specifier: yyDollar[1].n,
@@ -1502,49 +1512,49 @@ yydefault:
 		}
 	case 168:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:459
+//line pkg/c90/grammar.y:467
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 173:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:472
+//line pkg/c90/grammar.y:480
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 174:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:473
+//line pkg/c90/grammar.y:481
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 175:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:474
+//line pkg/c90/grammar.y:482
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 176:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:475
+//line pkg/c90/grammar.y:483
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 177:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:476
+//line pkg/c90/grammar.y:484
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 178:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:477
+//line pkg/c90/grammar.y:485
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 179:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:481
+//line pkg/c90/grammar.y:489
 		{
 			yyVAL.n = &ASTLabeledStatement{
 				ident: &ASTIdentifier{ident: yyDollar[1].str},
@@ -1553,7 +1563,7 @@ yydefault:
 		}
 	case 180:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line pkg/c90/grammar.y:487
+//line pkg/c90/grammar.y:495
 		{
 			yyVAL.n = &ASTSwitchCase{
 				caseVal:     yyDollar[2].n,
@@ -1563,7 +1573,7 @@ yydefault:
 		}
 	case 181:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:494
+//line pkg/c90/grammar.y:502
 		{
 			yyVAL.n = &ASTSwitchCase{
 				caseVal:     nil,
@@ -1571,33 +1581,44 @@ yydefault:
 				defaultCase: true,
 			}
 		}
+	case 182:
+		yyDollar = yyS[yypt-2 : yypt+1]
+//line pkg/c90/grammar.y:513
+		{
+			yyVAL.n = &ASTScope{}
+		}
 	case 183:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:506
+//line pkg/c90/grammar.y:514
 		{
-			yyVAL.n = yyDollar[2].n
+			yyVAL.n = &ASTScope{body: yyDollar[2].n}
 		}
 	case 184:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:507
+//line pkg/c90/grammar.y:517
 		{
-			yyVAL.n = yyDollar[2].n
+			yyVAL.n = &ASTScope{body: yyDollar[2].n}
 		}
 	case 185:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line pkg/c90/grammar.y:508
+//line pkg/c90/grammar.y:520
 		{
-			yyVAL.n = &ASTDeclarationStatementLists{decls: yyDollar[2].n.(ASTDeclaratorList), stmts: yyDollar[3].n.(ASTStatementList)}
+			yyVAL.n = &ASTScope{
+				body: &ASTDeclarationStatementLists{
+					decls: yyDollar[2].n.(ASTDeclaratorList),
+					stmts: yyDollar[3].n.(ASTStatementList),
+				},
+			}
 		}
 	case 186:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:512
+//line pkg/c90/grammar.y:531
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 187:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:513
+//line pkg/c90/grammar.y:532
 		{
 			li := yyDollar[1].n.(ASTDeclaratorList)
 			li = append(li, yyDollar[2].n.(ASTDeclaratorList)...)
@@ -1605,13 +1626,13 @@ yydefault:
 		}
 	case 188:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:521
+//line pkg/c90/grammar.y:540
 		{
 			yyVAL.n = ASTStatementList{yyDollar[1].n}
 		}
 	case 189:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:522
+//line pkg/c90/grammar.y:541
 		{
 			li := yyDollar[1].n.(ASTStatementList)
 			li = append(li, yyDollar[2].n)
@@ -1619,13 +1640,13 @@ yydefault:
 		}
 	case 191:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:531
+//line pkg/c90/grammar.y:550
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 192:
 		yyDollar = yyS[yypt-5 : yypt+1]
-//line pkg/c90/grammar.y:535
+//line pkg/c90/grammar.y:554
 		{
 			yyVAL.n = &ASTIfStatement{
 				condition: yyDollar[3].n,
@@ -1635,7 +1656,7 @@ yydefault:
 		}
 	case 193:
 		yyDollar = yyS[yypt-7 : yypt+1]
-//line pkg/c90/grammar.y:542
+//line pkg/c90/grammar.y:561
 		{
 			yyVAL.n = &ASTIfStatement{
 				condition: yyDollar[3].n,
@@ -1645,7 +1666,7 @@ yydefault:
 		}
 	case 194:
 		yyDollar = yyS[yypt-5 : yypt+1]
-//line pkg/c90/grammar.y:549
+//line pkg/c90/grammar.y:568
 		{
 			yyVAL.n = &ASTSwitchStatement{
 				switchOn: yyDollar[3].n,
@@ -1654,7 +1675,7 @@ yydefault:
 		}
 	case 195:
 		yyDollar = yyS[yypt-5 : yypt+1]
-//line pkg/c90/grammar.y:558
+//line pkg/c90/grammar.y:577
 		{
 			yyVAL.n = &ASTWhileLoop{
 				condition: yyDollar[3].n,
@@ -1663,7 +1684,7 @@ yydefault:
 		}
 	case 196:
 		yyDollar = yyS[yypt-7 : yypt+1]
-//line pkg/c90/grammar.y:564
+//line pkg/c90/grammar.y:583
 		{
 			yyVAL.n = &ASTDoWhileLoop{
 				condition: yyDollar[5].n,
@@ -1672,7 +1693,7 @@ yydefault:
 		}
 	case 197:
 		yyDollar = yyS[yypt-6 : yypt+1]
-//line pkg/c90/grammar.y:570
+//line pkg/c90/grammar.y:589
 		{
 			yyVAL.n = &ASTForLoop{
 				initialiser:       yyDollar[3].n,
@@ -1683,7 +1704,7 @@ yydefault:
 		}
 	case 198:
 		yyDollar = yyS[yypt-7 : yypt+1]
-//line pkg/c90/grammar.y:578
+//line pkg/c90/grammar.y:597
 		{
 			yyVAL.n = &ASTForLoop{
 				initialiser:       yyDollar[3].n,
@@ -1694,7 +1715,7 @@ yydefault:
 		}
 	case 199:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:589
+//line pkg/c90/grammar.y:608
 		{
 			yyVAL.n = &ASTGoto{
 				label: &ASTIdentifier{ident: yyDollar[2].str},
@@ -1702,69 +1723,67 @@ yydefault:
 		}
 	case 200:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:594
+//line pkg/c90/grammar.y:613
 		{
 			yyVAL.n = &ASTContinue{}
 		}
 	case 201:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:597
+//line pkg/c90/grammar.y:616
 		{
 			yyVAL.n = &ASTBreak{}
 		}
 	case 202:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:600
+//line pkg/c90/grammar.y:619
 		{
 			yyVAL.n = &ASTReturn{}
 		}
 	case 203:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:601
+//line pkg/c90/grammar.y:620
 		{
 			yyVAL.n = &ASTReturn{returnVal: yyDollar[2].n}
 		}
 	case 204:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:605
+//line pkg/c90/grammar.y:624
 		{
-			AST = ASTTranslationUnit{
-				&ASTNode{inner: yyDollar[1].n},
-			}
+			AST = ASTTranslationUnit{yyDollar[1].n}
 		}
 	case 205:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:610
+//line pkg/c90/grammar.y:627
 		{
-			AST = append(AST, &ASTNode{inner: yyDollar[2].n})
+			AST = append(AST, yyDollar[2].n)
 		}
 	case 206:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line pkg/c90/grammar.y:616
+//line pkg/c90/grammar.y:633
 		{
 			yyVAL.n = yyDollar[1].n
 		}
 	case 208:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line pkg/c90/grammar.y:621
+//line pkg/c90/grammar.y:638
 		{
 			panic("Old K&R style function parsed (1)")
 		}
 	case 209:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:622
+//line pkg/c90/grammar.y:639
 		{
 			yyVAL.n = &ASTFunction{typ: yyDollar[1].typ, decl: yyDollar[2].n.(*ASTDirectDeclarator), body: yyDollar[3].n}
 		}
 	case 210:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:623
+//line pkg/c90/grammar.y:640
 		{
 			panic("Old K&R style function parsed (2)")
 		}
 	case 211:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:624
+//line pkg/c90/grammar.y:641
 		{
 			yyVAL.n = &ASTFunction{typ: &ASTType{typ: "int"}, decl: yyDollar[1].n.(*ASTDirectDeclarator), body: yyDollar[2].n}
 		}

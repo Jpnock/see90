@@ -1,10 +1,8 @@
 package c90
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 )
 
@@ -60,28 +58,17 @@ func (t *ASTFunction) Describe(indent int) string {
 	if t.body == nil {
 		// TODO: we'd need to generate MIPS for this but just return instantly.
 		return fmt.Sprintf("%sfunction (%s) -> %s {}", indentStr, declDescribe, t.typ.Describe(0))
-	} else {
-		val := fmt.Sprintf("%sfunction (%s) -> %s {\n%s\n}\n", indentStr, declDescribe, t.typ.Describe(0), t.body.Describe(indent+4))
-
-		buf := new(bytes.Buffer)
-		m := NewMIPS()
-		t.GenerateMIPS(buf, m)
-
-		for _, scope := range m.VariableScopes {
-			val += fmt.Sprintf("%snew scope!\n", indentStr)
-			for ident, variable := range scope {
-				val += fmt.Sprintf("%s%s: %v\n", indentStr, ident, *variable)
-			}
-		}
-
-		fmt.Fprintf(os.Stdout, "\n\n%s", buf.String())
-		return val
 	}
+	return fmt.Sprintf("%sfunction (%s) -> %s {\n%s\n}\n", indentStr, declDescribe, t.typ.Describe(0), t.body.Describe(indent+4))
 }
 
 func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.NewFunction()
 	defer m.EndFunction()
+	// Always return at end of function
+	defer write(w, "jr $ra\n")
+
+	returnLabel := m.ReturnScopes.Peek()
 
 	funcName := t.Name()
 	write(w, ".globl %s\n", funcName)
@@ -106,7 +93,23 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 
 	// TODO: do we need to generate mips
-	t.decl.GenerateMIPS(w, m)
+	// t.decl.GenerateMIPS(w, m)
+
+	// Store $sp
+	write(w, "move $t7, $sp")
+
+	// Store $fp
+	stackPush(w, "$fp")
+	defer stackPop(w, "$fp")
+
+	// Move frame pointer to bottom of frame
+	// TODO: not ABI compliant
+	write(w, "move $fp, $t7")
+
+	// TODO: use correct length
+	reserve := 8 * 20
+	write(w, "addiu $sp, $sp, %d", -reserve)
+	defer write(w, "addiu $sp, $sp, %d", reserve)
 
 	for i, param := range variables {
 		// TODO: change size with type
@@ -117,6 +120,8 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 
 	t.body.GenerateMIPS(w, m)
+
+	write(w, "%s:", *returnLabel)
 }
 
 type ASTFunctionCall struct {
@@ -140,7 +145,10 @@ func (t *ASTFunctionCall) Describe(indent int) string {
 }
 
 func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
-	stackPop := 16
+	stackPush(w, "$ra")
+	defer stackPop(w, "$ra")
+
+	numStackPop := 16
 	// TODO: decide when to switch to stack based on 4x4 byte arguments
 	for i, arg := range t.arguments {
 		arg.GenerateMIPS(w, m)
@@ -150,18 +158,20 @@ func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
 			write(w, "move $%d, $v0", 4+i)
 		} else {
 			// TODO: Sizing is wrong (and probably argument ordering)
-			stackPop += 4
+			numStackPop += 4
 			write(w, "addiu $sp, $sp, -4")
 			write(w, "sw $v0, 0($sp)")
 		}
 	}
+
 	write(w, "addiu $sp, $sp, -16")
 	// TODO: handle arguments
 	funcName := t.FunctionName()
-	write(w, "j %s", funcName)
 
-	if stackPop > 0 {
-		write(w, "addiu $sp, $sp, %d", stackPop)
+	write(w, "jal %s", funcName)
+
+	if numStackPop > 0 {
+		write(w, "addiu $sp, $sp, %d", numStackPop)
 	}
 }
 

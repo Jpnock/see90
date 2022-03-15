@@ -263,7 +263,7 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	switch t.operator {
 	case ASTAssignmentOperatorMulEquals:
-		write(w, "mul $t0, $v0")
+		write(w, "mult $t0, $v0")
 		write(w, "mflo $v0")
 	case ASTAssignmentOperatorDivEquals:
 		write(w, "div $t0, $v0")
@@ -337,6 +337,10 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 		typ:      *t.typ,
 	}
 
+	if t.decl == nil || t.decl.identifier == nil {
+		// TODO: handle this case (mostly caused by function prototypes).
+		return
+	}
 	m.LastType = t.typ.typ
 
 	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
@@ -472,19 +476,6 @@ func (t *ASTStringLiteral) Describe(indent int) string {
 // TODO: investigate at later date
 func (t *ASTStringLiteral) GenerateMIPS(w io.Writer, m *MIPS) {}
 
-type ASTNode struct {
-	inner Node
-}
-
-func (t *ASTNode) Describe(indent int) string {
-	if t == nil {
-		return ""
-	}
-	return t.inner.Describe(indent)
-}
-
-func (t *ASTNode) GenerateMIPS(w io.Writer, m *MIPS) {}
-
 type ASTPanic struct{}
 
 func (t ASTPanic) Describe(indent int) string {
@@ -591,6 +582,26 @@ func (t ASTDirectDeclarator) GenerateMIPS(w io.Writer, m *MIPS) {
 	// if t.parameters != nil {
 	// 	t.parameters.GenerateMIPS(w, m)
 	// }
+}
+
+type ASTScope struct {
+	body Node
+}
+
+func (t *ASTScope) Describe(indent int) string {
+	if t.body == nil {
+		return ""
+	}
+	return t.body.Describe(indent)
+}
+
+func (t *ASTScope) GenerateMIPS(w io.Writer, m *MIPS) {
+	if t.body == nil {
+		return
+	}
+	m.NewVariableScope()
+	t.body.GenerateMIPS(w, m)
+	m.VariableScopes.Pop()
 }
 
 func genIndent(indent int) string {

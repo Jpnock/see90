@@ -50,8 +50,16 @@ primary_expression
 
 postfix_expression
 	: primary_expression {$$.n = $1.n}
-	| postfix_expression '[' expression ']'
-	| postfix_expression '(' ')' { $$.n = &ASTFunctionCall{function: $1.n} }
+	| postfix_expression '[' expression ']' {
+		// Array indexing
+		$$.n = &ASTIndexedExpression{
+			lvalue: $1.n,
+			index: $3.n,
+		}
+	}
+	| postfix_expression '(' ')' { 
+		$$.n = &ASTFunctionCall{function: $1.n} 
+	}
 	| postfix_expression '(' argument_expression_list ')' { 
 		$$.n = &ASTFunctionCall{
 			function: $1.n,
@@ -502,10 +510,21 @@ labeled_statement
 
 // TODO: create a new scope for these
 compound_statement
-	: '{' '}'
-	| '{' statement_list '}' { $$.n = $2.n }
-	| '{' declaration_list '}' { $$.n = $2.n }
-	| '{' declaration_list statement_list '}' { $$.n = &ASTDeclarationStatementLists{decls: $2.n.(ASTDeclaratorList), stmts: $3.n.(ASTStatementList)} }
+	: '{' '}' { $$.n = &ASTScope{} }
+	| '{' statement_list '}' { 
+		$$.n = &ASTScope{body: $2.n} 
+	}
+	| '{' declaration_list '}' { 
+		$$.n = &ASTScope{body: $2.n} 
+	}
+	| '{' declaration_list statement_list '}' {
+		$$.n = &ASTScope{
+			body: &ASTDeclarationStatementLists{
+				decls: $2.n.(ASTDeclaratorList),
+				stmts: $3.n.(ASTStatementList),
+			},
+		}
+	}
 	;
 
 declaration_list
@@ -603,18 +622,16 @@ jump_statement
 
 translation_unit
 	: external_declaration { 
-		AST = ASTTranslationUnit{
-			&ASTNode{inner: $1.n},
-		} 
+		AST = ASTTranslationUnit{$1.n} 
 	}
 	| translation_unit external_declaration {
-		AST = append(AST, &ASTNode{inner: $2.n})
+		AST = append(AST, $2.n)
 	}
 	;
 
 external_declaration
 	: function_definition { $$.n = $1.n }
-	| declaration
+	| declaration // TODO: global variables
 	;
 
 function_definition
