@@ -656,13 +656,13 @@ func (t *ASTIndexedExpression) Describe(indent int) string {
 func (t *ASTIndexedExpression) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Put index into $v0
 	t.index.GenerateMIPS(w, m)
-	stackPush(w, "$v0")
+	stackPush(w, "$v0", 4)
 
 	// Put lvalue into $v0
 	t.lvalue.GenerateMIPS(w, m)
 
 	// Index now in $t0
-	stackPop(w, "$t0")
+	stackPop(w, "$t0", 4)
 
 	// TODO: alter based on type (currently + 4x$t0 for int)
 	write(w, "addiu $v0, $v0, $t0")

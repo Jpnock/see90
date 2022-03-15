@@ -99,8 +99,8 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	write(w, "move $t7, $sp")
 
 	// Store $fp
-	stackPush(w, "$fp")
-	defer stackPop(w, "$fp")
+	stackPush(w, "$fp", 4)
+	defer stackPop(w, "$fp", 4)
 
 	// Move frame pointer to bottom of frame
 	// TODO: not ABI compliant
@@ -145,8 +145,8 @@ func (t *ASTFunctionCall) Describe(indent int) string {
 }
 
 func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
-	stackPush(w, "$ra")
-	defer stackPop(w, "$ra")
+	stackPush(w, "$ra", 4)
+	defer stackPop(w, "$ra", 4)
 
 	numStackPop := 16
 	// TODO: decide when to switch to stack based on 4x4 byte arguments
