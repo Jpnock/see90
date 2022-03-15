@@ -377,26 +377,6 @@ func (t *ASTConstant) Describe(indent int) string {
 	return fmt.Sprintf("%s%s", genIndent(indent), t.value)
 }
 
-// func parseInt(val string) (int, error) {
-// 	if len(val) == 0 {
-// 		panic("tried to parse empty int")
-// 	}
-
-// 	if len(val) > 1 && val[0] == '0' && (val[1] == 'x' || val[1] == 'X') {
-//         hexstr := val[2:]
-// 		strconv.ParseInt(hexstr, )
-// 		// Hex
-// 		return
-// 	}
-
-// 	if len(val) > 1 && val[0] == '0' {
-// 		// Octal
-// 		return
-// 	}
-
-// 	// Decimal
-// }
-
 // TODO: investigate at later date
 func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 	if len(t.value) == 0 {
