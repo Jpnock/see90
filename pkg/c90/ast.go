@@ -3,6 +3,7 @@ package c90
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -184,42 +185,64 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 	if t == nil {
 		return
 	}
-	// TODO: work out how to differentiate between identifiers that don't need
-	// loading into v0 (e.g. just the line `a`).
 
-	// TODO: handle global variables
+	currentlyInGlobalScope := len(m.VariableScopes) == 1
+	if currentlyInGlobalScope {
+		return
+	}
 
 	variable := m.VariableScopes.Peek()[t.ident]
 	if variable == nil {
 		panic(fmt.Errorf("identifier `%s` is not in scope", t.ident))
 	}
 
+	var globalLabel Label
+	if variable.isGlobal {
+		globalLabel = variable.GlobalLabel()
+
+		// Load the address of the global into $v1
+		write(w, "lui $v1, %%hi(%s)", globalLabel)
+		write(w, "addiu $v1, $v1, %%lo(%s)", globalLabel)
+	} else {
+		// Put the address of the local into $v1
+		write(w, "addiu $v1, $fp, %d", -variable.fpOffset)
+	}
+
 	m.LastType = variable.typ.typ
 
 	switch m.LastType {
 	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
-		// Put the value of the variable into $v0
-		write(w, "lw $v0, %d($fp)", -variable.fpOffset)
-
+		if variable.isGlobal {
+			write(w, "lw $v0, 0($v1)")
+		} else {
+			write(w, "lw $v0, %d($fp)", -variable.fpOffset)
+		}
 	case VarTypeChar:
-		write(w, "lb $v0, %d($fp)", -variable.fpOffset)
-
+		if variable.isGlobal {
+			write(w, "lb $v0, 0($v1)")
+		} else {
+			write(w, "lb $v0, %d($fp)", -variable.fpOffset)
+		}
 	case VarTypeFloat:
-		write(w, "lwc1 $f0, %d($fp)", -variable.fpOffset)
-
+		if variable.isGlobal {
+			write(w, "lwc1 $f0, 0($v1)")
+		} else {
+			write(w, "lwc1 $f0, %d($fp)", -variable.fpOffset)
+		}
 	case VarTypeDouble:
-		write(w, "lwc1 $f0, %d($fp)", -variable.fpOffset+4)
-		write(w, "lwc1 $f1, %d($fp)", -variable.fpOffset)
+		if variable.isGlobal {
+			write(w, "lwc1 $f0, 4($v1)")
+			write(w, "lwc1 $f1, 0($v1)")
+		} else {
+			write(w, "lwc1 $f0, %d($fp)", -variable.fpOffset+4)
+			write(w, "lwc1 $f1, %d($fp)", -variable.fpOffset)
+		}
 	case VarTypeString:
 		write(w, "lui $v0, %%hi(%s)", *variable.label)
 		write(w, "addiu $v0, $v0, %%lo(%s)", *variable.label)
-
 	default:
 		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 	}
-	// Put the address of the variable into $v1
-	write(w, "addiu $v1, $fp, %d", -variable.fpOffset)
-
 }
 
 type ASTAssignment struct {
@@ -243,42 +266,110 @@ func (t *ASTAssignment) Describe(indent int) string {
 	return fmt.Sprintf("%s%s %s %s", genIndent(indent), t.lval.Describe(0), t.operator, t.value.Describe(0))
 }
 
+func storeToReturnRegister(w io.Writer, typ VarType) {
+	switch typ {
+	case VarTypeFloat:
+		write(w, "swc1 $f0, 0($v1)")
+	case VarTypeDouble:
+		write(w, "swc1 $f0, 4($v1)")
+		write(w, "swc1 $f1, 0($v1)")
+	default:
+		write(w, "sw $v0, 0($v1)")
+	}
+	return
+}
+
 // TODO: investigate at later date
 func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
-	// Load value into $v0
+	// Load value into $v0/$f0
 	t.value.GenerateMIPS(w, m)
 
 	if t.tmpAssign || m.LastType == VarTypeString {
 		return
 	}
 
+	rhsType := m.LastType
+
 	// TODO: switch on type
-	stackPush(w, "$v0", 4)
-	t.lval.GenerateMIPS(w, m)
-	stackPop(w, "$v0", 4)
+	switch rhsType {
+	case VarTypeFloat:
+		stackPushFP(w, "$f0")
+		t.lval.GenerateMIPS(w, m)
+		stackPopFP(w, "$f0")
+	case VarTypeDouble:
+		stackPushFP(w, "$f0", "$f1")
+		t.lval.GenerateMIPS(w, m)
+		stackPopFP(w, "$f0", "$f1")
+	default:
+		stackPush(w, "$v0", 4)
+		t.lval.GenerateMIPS(w, m)
+		stackPop(w, "$v0", 4)
+	}
 
 	if t.operator == ASTAssignmentOperatorEquals {
 		// Special case as this does not require a load
-		write(w, "sw $v0, 0($v1)")
+		storeToReturnRegister(w, m.LastType)
 		return
 	}
 
-	write(w, "lw $t0, 0($v1)")
+	switch m.LastType {
+	case VarTypeFloat:
+		write(w, "lwc1 $f2, 0($v1)")
+	case VarTypeDouble:
+		write(w, "lwc1 $f2, 4($v1)")
+		write(w, "lwc1 $f3, 0($v1)")
+	default:
+		write(w, "lw $t0, 0($v1)")
+	}
 
 	switch t.operator {
 	case ASTAssignmentOperatorMulEquals:
-		write(w, "mult $t0, $v0")
-		write(w, "mflo $v0")
+		switch rhsType {
+		case VarTypeFloat:
+			write(w, "mul.s $f0, $f2, $f0")
+		case VarTypeDouble:
+			write(w, "mul.d $f0, $f2, $f0")
+		case VarTypeUnsigned:
+			write(w, "multu $t0, $v0")
+			write(w, "mflo $v0")
+		default:
+			write(w, "mult $t0, $v0")
+			write(w, "mflo $v0")
+		}
 	case ASTAssignmentOperatorDivEquals:
-		write(w, "div $t0, $v0")
-		write(w, "mflo $v0")
+		switch rhsType {
+		case VarTypeFloat:
+			write(w, "div.s $f0, $f2, $f0")
+		case VarTypeDouble:
+			write(w, "div.d $f0, $f2, $f0")
+		case VarTypeUnsigned:
+			write(w, "divu $t0, $v0")
+			write(w, "mflo $v0")
+		default:
+			write(w, "div $t0, $v0")
+			write(w, "mflo $v0")
+		}
+	case ASTAssignmentOperatorAddEquals:
+		switch rhsType {
+		case VarTypeFloat:
+			write(w, "add.s $f0, $f2, $f0")
+		case VarTypeDouble:
+			write(w, "add.d $f0, $f2, $f0")
+		default:
+			write(w, "addu $v0, $t0, $v0")
+		}
+	case ASTAssignmentOperatorSubEquals:
+		switch rhsType {
+		case VarTypeFloat:
+			write(w, "sub.s $f0, $f2, $f0")
+		case VarTypeDouble:
+			write(w, "sub.d $f0, $f2, $f0")
+		default:
+			write(w, "subu $v0, $t0, $v0")
+		}
 	case ASTAssignmentOperatorModEquals:
 		write(w, "div $t0, $v0")
 		write(w, "mfhi $v0")
-	case ASTAssignmentOperatorAddEquals:
-		write(w, "add $v0, $t0, $v0")
-	case ASTAssignmentOperatorSubEquals:
-		write(w, "sub $v0, $t0, $v0")
 	case ASTAssignmentOperatorLeftEquals:
 		write(w, "sllv $v0, $t0, $v0")
 	case ASTAssignmentOperatorRightEquals:
@@ -293,7 +384,7 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 		panic("unhanlded ASTAssignmentOperator")
 	}
 
-	write(w, "sw $v0, 0($v1)")
+	storeToReturnRegister(w, m.LastType)
 }
 
 type ASTArgumentExpressionList []*ASTAssignment
@@ -334,41 +425,78 @@ func (t *ASTDecl) Describe(indent int) string {
 
 // TODO: investigate at later date
 func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
-	// TODO: handle global scope case where the decl is not on the stack
-	declVar := &Variable{
-		fpOffset: m.Context.GetNewLocalOffset(),
-		decl:     t,
-		typ:      *t.typ,
-		label:    nil,
-	}
-
 	if t.decl == nil || t.decl.identifier == nil {
 		// TODO: handle this case (mostly caused by function prototypes).
 		return
 	}
-	m.LastType = t.typ.typ
 
-	if t.initVal != nil {
-		t.initVal.GenerateMIPS(w, m)
-		if m.LastType == VarTypeString {
-			declVar.label = &m.lastLabel
-			declVar.typ = ASTType{typ: VarTypeString, typName: ""}
-		} else {
-			switch t.typ.typ {
-			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
-				write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
-			case VarTypeChar:
-				write(w, "sb $v0, %d($fp)", -declVar.fpOffset)
-			case VarTypeFloat:
-				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset)
-			case VarTypeDouble:
-				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+4)
-				write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset)
-			default:
-				panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
-			}
-		}
+	isGlobal := len(m.VariableScopes) == 1
+	declVar := &Variable{
+		decl:     t,
+		typ:      *t.typ,
+		label:    nil,
+		isGlobal: isGlobal,
 	}
+
+	var globalLabel Label
+	if !isGlobal {
+		declVar.fpOffset = m.Context.GetNewLocalOffset()
+	} else {
+		globalLabel = declVar.GlobalLabel()
+	}
+
+	m.LastType = t.typ.typ
+	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
+
+	if isGlobal {
+		// Global variable
+		write(w, ".data")
+		defer write(w, ".text")
+		write(w, "%s:", globalLabel)
+		if t.initVal == nil {
+			switch t.typ.typ {
+			case VarTypeChar:
+				write(w, "  .byte 0")
+			case VarTypeDouble:
+				write(w, "  .word 0")
+				write(w, "  .word 0")
+			default:
+				write(w, "  .word 0")
+			}
+			return
+		}
+		t.initVal.GenerateMIPS(w, m)
+		return
+	}
+
+	// Local variable
+	if t.initVal == nil {
+		return
+	}
+
+	t.initVal.GenerateMIPS(w, m)
+
+	if m.LastType == VarTypeString {
+		declVar.label = &m.lastLabel
+		declVar.typ = ASTType{typ: VarTypeString, typName: ""}
+		m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
+		return
+	}
+
+	switch t.typ.typ {
+	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+		write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
+	case VarTypeChar:
+		write(w, "sb $v0, %d($fp)", -declVar.fpOffset)
+	case VarTypeFloat:
+		write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset)
+	case VarTypeDouble:
+		write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+4)
+		write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset)
+	default:
+		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+	}
+
 	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
 }
 
@@ -393,6 +521,8 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 		panic("empty ASTConstant")
 	}
 
+	isGlobal := len(m.VariableScopes) == 1
+
 	// TODO: fix this to support other types etc.
 
 	// TODO: currently doesnt detect chars declard with an int not a char literal
@@ -401,7 +531,11 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 		if err != nil {
 			panic(fmt.Errorf("character literal unquote gave error: %v", err))
 		}
-		write(w, "li $v0, %d", unquotedString[0])
+		if isGlobal {
+			write(w, ".byte %d", int(unquotedString[0]))
+		} else {
+			write(w, "li $v0, %d", unquotedString[0])
+		}
 		m.LastType = VarTypeChar
 		return
 	}
@@ -417,7 +551,11 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 		if err != nil {
 			panic("invalid floating point constant")
 		}
-		write(w, "li.s $f0, %f", float32(f32))
+		if isGlobal {
+			write(w, "  .word %d", math.Float32bits(float32(f32)))
+		} else {
+			write(w, "li.s $f0, %f", float32(f32))
+		}
 		m.LastType = VarTypeFloat
 		return
 	}
@@ -425,20 +563,32 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 	if t.value[lastIdx] == 'u' || t.value[lastIdx] == 'U' {
 		// Appendix A, pg. 194 states that all numbers are doubles (or long doubles)
 		// unless suffixed with f or F, which implies they are floats.
-		intValue, err := strconv.ParseUint(t.value[:lastIdx], 0, 32)
+		uintValue, err := strconv.ParseUint(t.value[:lastIdx], 0, 32)
 		if err != nil {
 			panic("unable to convert unsinged to int")
 		}
-		write(w, "li $v0, %d", intValue)
+		if isGlobal {
+			write(w, "  .word %d", uintValue)
+		} else {
+			write(w, "li $v0, %d", uintValue)
+		}
 		return
 	}
 
+	emittedGlobalInt := false
 	intValue, err := strconv.ParseInt(t.value, 0, 32)
 	if err == nil {
 		// Could be an integer or double (assume integer as all operations
 		// can be performed on this type; it will also be overwritten by
 		// ASTDecl/ASTIdentifier etc.)
-		write(w, "li $v0, %d", intValue)
+		if isGlobal {
+			if m.LastType != VarTypeDouble {
+				emittedGlobalInt = true
+				write(w, "  .word %d", intValue)
+			}
+		} else {
+			write(w, "li $v0, %d", intValue)
+		}
 		m.LastType = VarTypeInteger
 	} else {
 		// Not an int
@@ -448,6 +598,14 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 	f64, err := strconv.ParseFloat(t.value, 64)
 	if err != nil {
 		panic("ASTConstant expected double")
+	}
+	if isGlobal {
+		if !emittedGlobalInt {
+			bits := math.Float64bits(f64)
+			write(w, "  .word %d", bits>>32)
+			write(w, "  .word %d", bits&0xFFFFFFFF)
+		}
+		return
 	}
 	write(w, "li.d $f0, %f", f64)
 }

@@ -49,6 +49,38 @@ func write(w io.Writer, format string, args ...interface{}) {
 	io.WriteString(w, "\n")
 }
 
+func stackPushFP(w io.Writer, registers ...string) {
+	if len(registers) > 2 {
+		panic("bad stackPushFP")
+	}
+
+	if len(registers) == 2 {
+		write(w, "addiu $sp, $sp, -8")
+		write(w, "swc1 %s, 4($sp)", registers[0])
+		write(w, "swc1 %s, 0($sp)", registers[1])
+		return
+	}
+
+	write(w, "addiu $sp, $sp, -4")
+	write(w, "swc1 %s, 0($sp)", registers[0])
+}
+
+func stackPopFP(w io.Writer, registers ...string) {
+	if len(registers) > 2 {
+		panic("bad stackPopFP")
+	}
+
+	if len(registers) == 2 {
+		write(w, "lwc1 %s, 4($sp)", registers[0])
+		write(w, "lwc1 %s, 0($sp)", registers[1])
+		write(w, "addiu $sp, $sp, 8")
+		return
+	}
+
+	write(w, "lwc1 %s, 0($sp)", registers[0])
+	write(w, "addiu $sp, $sp, 4")
+}
+
 func stackPush(w io.Writer, reg string, size int) {
 	write(w, "addiu $sp, $sp, -8")
 	if reg != "" {
@@ -176,37 +208,19 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 		// Pop the LHS result into $t0
 		stackPop(w, "$t0", 4)
 	case VarTypeFloat:
-		write(w, "addiu $sp, $sp, -8")
-		write(w, "swc1 $f0, 0($sp)")
-
+		stackPushFP(w, "$f0")
 		t.rhs.GenerateMIPS(w, m)
+		stackPushFP(w, "$f0")
 
-		write(w, "addiu $sp, $sp, -8")
-		write(w, "swc1 $f0, 0($sp)")
-
-		write(w, "lwc1 $f4, 0($sp)")
-		write(w, "addiu $sp, $sp, 8")
-
-		write(w, "lwc1 $f2, 0($sp)")
-		write(w, "addiu $sp, $sp, 8")
+		stackPopFP(w, "$f4")
+		stackPopFP(w, "$f2")
 	case VarTypeDouble:
-		write(w, "addiu $sp, $sp, -8")
-		write(w, "swc1 $f0, 4($sp)")
-		write(w, "swc1 $f1, 0($sp)")
-
+		stackPushFP(w, "$f0", "$f1")
 		t.rhs.GenerateMIPS(w, m)
+		stackPushFP(w, "$f0", "$f1")
 
-		write(w, "addiu $sp, $sp, -8")
-		write(w, "swc1 $f0, 4($sp)")
-		write(w, "swc1 $f1, 0($sp)")
-
-		write(w, "lwc1 $f4, 4($sp)")
-		write(w, "lwc1 $f5, 0($sp)")
-		write(w, "addiu $sp, $sp, 8")
-
-		write(w, "lwc1 $f2, 4($sp)")
-		write(w, "lwc1 $f3, 0($sp)")
-		write(w, "addiu $sp, $sp, 8")
+		stackPopFP(w, "$f4", "$f5")
+		stackPopFP(w, "$f2", "$f3")
 	case VarTypeChar:
 		stackPush(w, "$v0", 2)
 

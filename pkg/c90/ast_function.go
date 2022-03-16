@@ -82,12 +82,14 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	returnLabel := m.ReturnScopes.Peek()
 
 	funcName := t.Name()
+	write(w, ".text")
 	write(w, ".globl %s\n", funcName)
 	write(w, "%s:\n", funcName)
 
-	var variables []*Variable
-	for i, param := range t.decl.parameters.li {
-		stackOffset := 4 * i
+	var arguments []*Variable
+	nextStackOffset := 0
+	for _, param := range t.decl.parameters.li {
+		paramType := *param.specifier.(*ASTType)
 
 		// TODO: at the moment, we're assuming all function parameters are
 		// identifiers, however this is clearly not the case when you have array
@@ -95,13 +97,19 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 		directDecl, ok := param.declarator.(*ASTDirectDeclarator)
 		if ok {
 			v := &Variable{
-				fpOffset: -stackOffset,
+				fpOffset: -nextStackOffset,
 				decl:     nil,
-				typ:      *param.specifier.(*ASTType),
+				typ:      paramType,
 			}
 			m.VariableScopes[len(m.VariableScopes)-1][directDecl.identifier.ident] = v
-			variables = append(variables, v)
+			arguments = append(arguments, v)
 		}
+
+		allocatedSize := 4
+		if paramType.typ == VarTypeDouble {
+			allocatedSize += 4
+		}
+		nextStackOffset += allocatedSize
 	}
 
 	// TODO: do we need to generate mips
@@ -123,11 +131,49 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	write(w, "addiu $sp, $sp, %d", -reserve)
 	defer write(w, "addiu $sp, $sp, %d", reserve)
 
-	for i, param := range variables {
-		// TODO: change size with type
-		write(w, "sw $%d, %d($fp)", i+4, -param.fpOffset)
-		if i == 3 {
+	nextIntReg := 4
+	for i, param := range arguments {
+		if nextIntReg > 7 || (param.typ.typ == VarTypeDouble && nextIntReg == 7) {
+			// We only need to save the first four args max.
 			break
+		}
+
+		firstParamTyp := arguments[0].typ.typ
+		if i < 2 && (firstParamTyp == VarTypeFloat || firstParamTyp == VarTypeDouble) {
+			if param.typ.typ == VarTypeFloat {
+				if i == 0 {
+					write(w, "swc1 $f12, %d($fp)", -param.fpOffset)
+				} else {
+					write(w, "swc1 $f14, %d($fp)", -param.fpOffset)
+				}
+				nextIntReg += 1
+				continue
+			} else if param.typ.typ == VarTypeDouble {
+				if i == 0 {
+					write(w, "swc1 $f12, %d($fp)", -param.fpOffset+4)
+					write(w, "swc1 $f13, %d($fp)", -param.fpOffset)
+					nextIntReg += 2
+				} else {
+					write(w, "swc1 $f14, %d($fp)", -param.fpOffset+4)
+					write(w, "swc1 $f15, %d($fp)", -param.fpOffset)
+					// As doubles are even register aligned
+					nextIntReg += 3
+				}
+				continue
+			}
+		}
+
+		if param.typ.typ == VarTypeDouble {
+			if nextIntReg%2 != 0 {
+				// As doubles are even register aligned
+				nextIntReg += 1
+			}
+			write(w, "sw $%d, %d($fp)", nextIntReg, -param.fpOffset)
+			write(w, "sw $%d, %d($fp)", nextIntReg+1, -param.fpOffset)
+			nextIntReg += 2
+		} else {
+			write(w, "sw $%d, %d($fp)", nextIntReg, -param.fpOffset)
+			nextIntReg += 1
 		}
 	}
 
@@ -157,33 +203,113 @@ func (t *ASTFunctionCall) Describe(indent int) string {
 }
 
 func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
+	// Need to do this as the very start/last thing
+	// to prevent it interfering with the call stack.
 	stackPush(w, "$ra", 4)
 	defer stackPop(w, "$ra", 4)
 
-	numStackPop := 16
+	const regTypeFP = "fp"
+	const regTypeInt = "int"
+	firstRegisterType := regTypeInt
+
+	overflowArgsStackPopAmount := 0
+	lastIntRegisterUsed := 3
+	numBytesUsed := 0
+
 	// TODO: decide when to switch to stack based on 4x4 byte arguments
 	for i, arg := range t.arguments {
 		arg.GenerateMIPS(w, m)
-		// TODO: switch on type of arg
-		if i < 4 {
-			// Arguments _definitely_ on stack after this
-			write(w, "move $%d, $v0", 4+i)
-		} else {
-			// TODO: Sizing is wrong (and probably argument ordering)
-			numStackPop += 4
-			write(w, "addiu $sp, $sp, -4")
-			write(w, "sw $v0, 0($sp)")
+
+		if numBytesUsed >= 16 || lastIntRegisterUsed >= 7 {
+			// Put variables on stack as we've overflowed the register space
+			// available.
+			switch m.LastType {
+			case VarTypeFloat:
+				overflowArgsStackPopAmount += 4
+				stackPushFP(w, "$f0")
+			case VarTypeDouble:
+				overflowArgsStackPopAmount += 8
+				stackPushFP(w, "$f0", "$f1")
+			default:
+				// TODO: Sizing is wrong for some types (and probably argument ordering)
+				overflowArgsStackPopAmount += 4
+				write(w, "addiu $sp, $sp, -4")
+				write(w, "sw $v0, 0($sp)")
+			}
+			continue
 		}
+
+		if i == 0 && (m.LastType == VarTypeFloat || m.LastType == VarTypeDouble) {
+			// Check if we need to handle the edgecase
+			firstRegisterType = regTypeFP
+		}
+
+		nextIntReg := lastIntRegisterUsed + 1
+
+		if firstRegisterType == regTypeFP && i < 2 {
+			if m.LastType == VarTypeFloat {
+				if nextIntReg == 4 {
+					write(w, "mov.s $f12, $f0")
+				} else {
+					write(w, "mov.s $f14, $f0")
+				}
+
+				lastIntRegisterUsed += 1
+				numBytesUsed += 4
+
+				// Process next arg
+				continue
+			} else if m.LastType == VarTypeDouble {
+				if nextIntReg == 4 {
+					write(w, "mov.s $f12, $f0")
+					write(w, "mov.s $f13, $f1")
+				} else {
+					write(w, "mov.s $f14, $f0")
+					write(w, "mov.s $f15, $f1")
+				}
+
+				lastIntRegisterUsed += 2
+				numBytesUsed += 8
+
+				// Process next arg
+				continue
+			}
+
+			// We're no longer dealing with an FP arg, so handle this below.
+		}
+
+		// Everything from herein goes into int registers
+		switch m.LastType {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
+			write(w, "move $%d, $v0", nextIntReg)
+			numBytesUsed += 4
+		case VarTypeFloat:
+			write(w, "mfc1 $%d, $f0", nextIntReg)
+			numBytesUsed += 4
+		case VarTypeDouble:
+			if nextIntReg%2 != 0 {
+				// Needs to be even aligned for some reason.
+				nextIntReg += 1
+			}
+			write(w, "mfc1 $%d, $f0", nextIntReg+1)
+			write(w, "mfc1 $%d, $f1", nextIntReg)
+
+			// We use two registers, so increment this here.
+			nextIntReg += 1
+			numBytesUsed += 8
+		default:
+			panic("unknown function call arg type")
+		}
+
+		lastIntRegisterUsed = nextIntReg
 	}
 
 	write(w, "addiu $sp, $sp, -16")
-	// TODO: handle arguments
-	funcName := t.FunctionName()
+	write(w, "jal %s", t.FunctionName())
+	write(w, "addiu $sp, $sp, 16")
 
-	write(w, "jal %s", funcName)
-
-	if numStackPop > 0 {
-		write(w, "addiu $sp, $sp, %d", numStackPop)
+	if overflowArgsStackPopAmount > 0 {
+		write(w, "addiu $sp, $sp, %d", overflowArgsStackPopAmount)
 	}
 }
 
