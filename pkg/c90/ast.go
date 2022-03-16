@@ -211,8 +211,8 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 		write(w, "lwc1 $f0, %d($fp)", -variable.fpOffset+4)
 		write(w, "lwc1 $f1, %d($fp)", -variable.fpOffset)
 	case VarTypeString:
-		write(w, "lui $t0, %%hi(%s)", *variable.label)
-		write(w, "addiu $v0, $t0, %%lo(%s)", *variable.label)
+		write(w, "lui $v0, %%hi(%s)", *variable.label)
+		write(w, "addiu $v0, $v0, %%lo(%s)", *variable.label)
 
 	default:
 		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
@@ -353,7 +353,6 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 		if m.LastType == VarTypeString {
 			declVar.label = &m.lastLabel
 			declVar.typ = ASTType{typ: VarTypeString, typName: ""}
-			m.LastType = VarTypeString
 		} else {
 			switch t.typ.typ {
 			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:

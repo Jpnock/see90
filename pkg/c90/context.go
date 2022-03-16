@@ -102,10 +102,8 @@ func (m *MIPS) NewFunction() {
 	// TODO: change this
 	m.Context.CurrentStackFramePointerOffset = fp + sp + ra
 
-	//clear map of strings declared in last funtion
-	for k := range m.stringMap {
-		delete(m.stringMap, k)
-	}
+	//clear map of strings declared in last function
+	m.stringMap = map[Label]string{}
 
 	m.NewVariableScope()
 	m.ReturnScopes.Push(m.CreateUniqueLabel("function_return"))
@@ -114,4 +112,5 @@ func (m *MIPS) NewFunction() {
 func (m *MIPS) EndFunction() {
 	m.VariableScopes.Pop()
 	m.ReturnScopes.Pop()
+	m.stringMap = map[Label]string{}
 }

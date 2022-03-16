@@ -65,6 +65,17 @@ func (t *ASTFunction) Describe(indent int) string {
 func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.NewFunction()
 	defer m.EndFunction()
+
+	defer func() {
+		// print the lables for strings declared in function
+		write(w, ".data")
+		for k, v := range m.stringMap {
+			write(w, "%s:", k)
+			write(w, ".asciz %s", v)
+		}
+		write(w, ".text")
+	}()
+
 	// Always return at end of function
 	defer write(w, "jr $ra\n")
 
@@ -123,12 +134,6 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	t.body.GenerateMIPS(w, m)
 
 	write(w, "%s:", *returnLabel)
-
-	//print the lables for strings declared in funtion
-	for k, v := range m.stringMap {
-		write(w, "%s:", k)
-		write(w, ".asciz %s", v)
-	}
 }
 
 type ASTFunctionCall struct {
