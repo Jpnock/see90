@@ -280,7 +280,7 @@ func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
 
 		// Everything from herein goes into int registers
 		switch m.LastType {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar, VarTypeString:
 			write(w, "move $%d, $v0", nextIntReg)
 			numBytesUsed += 4
 		case VarTypeFloat:

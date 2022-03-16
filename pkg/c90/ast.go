@@ -645,6 +645,9 @@ func (t *ASTStringLiteral) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.lastLabel = stringlabel
 	m.stringMap[stringlabel] = sb.String()
 
+	write(w, "lui $v0, %%hi(%s)", stringlabel)
+	write(w, "addiu $v0, $v0, %%lo(%s)", stringlabel)
+
 	m.LastType = VarTypeString
 }
 
