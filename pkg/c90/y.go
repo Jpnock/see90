@@ -1809,7 +1809,7 @@ yydefault:
 		yyDollar = yyS[yypt-2 : yypt+1]
 //line pkg/c90/grammar.y:645
 		{
-			yyVAL.n = &ASTFunction{typ: &ASTType{typ: "int"}, decl: yyDollar[1].n.(*ASTDirectDeclarator), body: yyDollar[2].n}
+			yyVAL.n = &ASTFunction{typ: &ASTType{typ: VarTypeInteger}, decl: yyDollar[1].n.(*ASTDirectDeclarator), body: yyDollar[2].n}
 		}
 	}
 	goto yystack /* stack new state and value */
