@@ -21,6 +21,7 @@ const (
 	VarTypeVoid     VarType = "void"
 	VarTypeSigned   VarType = "signed"
 	VarTypeUnsigned VarType = "unsigned"
+	VarTypeString   VarType = "string"
 	VarTypeTypeName VarType = "typename"
 )
 
@@ -209,6 +210,9 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 	case VarTypeDouble:
 		write(w, "lwc1 $f0, %d($fp)", -variable.fpOffset+4)
 		write(w, "lwc1 $f1, %d($fp)", -variable.fpOffset)
+	case VarTypeString:
+		write(w, "lui $t0, %%hi(%s)", *variable.label)
+		write(w, "addiu $v0, $t0, %%lo(%s)", *variable.label)
 
 	default:
 		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
@@ -244,7 +248,7 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Load value into $v0
 	t.value.GenerateMIPS(w, m)
 
-	if t.tmpAssign {
+	if t.tmpAssign || m.LastType == VarTypeString {
 		return
 	}
 
@@ -335,6 +339,7 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 		fpOffset: m.Context.GetNewLocalOffset(),
 		decl:     t,
 		typ:      *t.typ,
+		label:    nil,
 	}
 
 	if t.decl == nil || t.decl.identifier == nil {
@@ -343,23 +348,29 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 	m.LastType = t.typ.typ
 
-	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
 	if t.initVal != nil {
 		t.initVal.GenerateMIPS(w, m)
-		switch t.typ.typ {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
-			write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
-		case VarTypeChar:
-			write(w, "sb $v0, %d($fp)", -declVar.fpOffset)
-		case VarTypeFloat:
-			write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset)
-		case VarTypeDouble:
-			write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+4)
-			write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset)
-		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+		if m.LastType == VarTypeString {
+			declVar.label = &m.lastLabel
+			declVar.typ = ASTType{typ: VarTypeString, typName: ""}
+			m.LastType = VarTypeString
+		} else {
+			switch t.typ.typ {
+			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+				write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
+			case VarTypeChar:
+				write(w, "sb $v0, %d($fp)", -declVar.fpOffset)
+			case VarTypeFloat:
+				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset)
+			case VarTypeDouble:
+				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+4)
+				write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset)
+			default:
+				panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+			}
 		}
 	}
+	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
 }
 
 type ASTConstant struct {
@@ -454,7 +465,31 @@ func (t *ASTStringLiteral) Describe(indent int) string {
 }
 
 // TODO: investigate at later date
-func (t *ASTStringLiteral) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTStringLiteral) GenerateMIPS(w io.Writer, m *MIPS) {
+
+	//Get slice of escaped runes
+	unquotedString, err := strconv.Unquote(t.value)
+	if err != nil {
+		panic(fmt.Errorf("string Literal unquote gave error: %v", err))
+	}
+
+	var sb strings.Builder
+	sb.WriteString("\"")
+	//for each rune convert them into hex and add \x before hand then add that to the string
+	for _, r := range unquotedString {
+		sb.WriteString(
+			fmt.Sprintf("\\x%02x", r),
+		)
+	}
+	sb.WriteString("\\000\"")
+
+	stringlabel := m.CreateUniqueLabel("string")
+
+	m.lastLabel = stringlabel
+	m.stringMap[stringlabel] = sb.String()
+
+	m.LastType = VarTypeString
+}
 
 type ASTPanic struct{}
 
