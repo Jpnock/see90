@@ -9,6 +9,7 @@ type Variable struct {
 	fpOffset int
 	decl     *ASTDecl
 	typ      ASTType
+	label    *Label
 }
 
 type MIPSContext struct {
@@ -27,6 +28,8 @@ type MIPS struct {
 	LabelScopes     LabelScopeStack
 	CaseLabelScopes CaseLabelScopeStack
 	ReturnScopes    ReturnScopeStack
+	stringMap       map[Label]string
+	lastLabel       Label
 
 	LastType VarType
 
@@ -41,6 +44,7 @@ func NewMIPS() *MIPS {
 		},
 		Context:           &MIPSContext{},
 		LabelScopes:       nil,
+		stringMap:         make(map[Label]string),
 		LastType:          VarTypeInvalid,
 		uniqueLabelNumber: 0,
 	}
@@ -97,6 +101,12 @@ func (m *MIPS) NewFunction() {
 	const ra = 4
 	// TODO: change this
 	m.Context.CurrentStackFramePointerOffset = fp + sp + ra
+
+	//clear map of strings declared in last funtion
+	for k := range m.stringMap {
+		delete(m.stringMap, k)
+	}
+
 	m.NewVariableScope()
 	m.ReturnScopes.Push(m.CreateUniqueLabel("function_return"))
 }

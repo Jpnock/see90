@@ -123,6 +123,12 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	t.body.GenerateMIPS(w, m)
 
 	write(w, "%s:", *returnLabel)
+
+	//print the lables for strings declared in funtion
+	for k, v := range m.stringMap {
+		write(w, "%s:", k)
+		write(w, ".asciz %s", v)
+	}
 }
 
 type ASTFunctionCall struct {
