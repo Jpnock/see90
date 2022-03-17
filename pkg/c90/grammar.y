@@ -227,9 +227,17 @@ constant_expression
 	;
 
 declaration
-	: declaration_specifiers ';' { 
-		fmt.Fprintf(os.Stderr, "Ignoring declaration specifier without init declaration list\n")
-		$$.n = ASTDeclaratorList{}
+	: declaration_specifiers ';' {
+		if $1.typ != nil && $1.typ.typ == VarTypeEnum {
+			$$.n = ASTDeclaratorList{
+				&ASTDecl{
+					typ: $1.typ,
+				},
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "Ignoring declaration specifier without init declaration list\n")
+			$$.n = ASTDeclaratorList{}
+		}
 	}
 	| declaration_specifiers init_declarator_list ';' {
 		for _, entry := range $2.n.(ASTDeclaratorList) {
@@ -242,7 +250,9 @@ declaration
 declaration_specifiers
 	: storage_class_specifier
 	| storage_class_specifier declaration_specifiers
-	| type_specifier { $$.n = $1.typ }
+	| type_specifier {
+		$$.typ = $1.typ
+	}
 	| type_specifier declaration_specifiers
 	| type_qualifier 
 	| type_qualifier declaration_specifiers
@@ -284,7 +294,9 @@ type_specifier
 	| SIGNED { $$.typ = &ASTType{typ: VarTypeSigned} }
 	| UNSIGNED { $$.typ = &ASTType{typ: VarTypeUnsigned} }
 	| struct_or_union_specifier
-	| enum_specifier
+	| enum_specifier { 
+		$$.typ = &ASTType{typ: VarTypeEnum, enum: $1.n.(*ASTEnum)}
+	}
 	| TYPE_NAME { $$.typ = &ASTType{typ: VarTypeTypeName, typName: $1.str} }
 	;
 
@@ -310,7 +322,7 @@ struct_declaration
 
 specifier_qualifier_list
 	: type_specifier specifier_qualifier_list
-	| type_specifier {$$.n = $1.n}
+	| type_specifier {$$.n = $1.typ}
 	| type_qualifier specifier_qualifier_list
 	| type_qualifier
 	;
@@ -327,26 +339,49 @@ struct_declarator
 	;
 
 enum_specifier
-	: ENUM '{' enumerator_list '}'
-	| ENUM IDENTIFIER '{' enumerator_list '}'
-	| ENUM IDENTIFIER
+	: ENUM '{' enumerator_list '}' {
+		$$.n = &ASTEnum{
+			entries: $3.n.(ASTEnumEntryList),
+		}
+	}
+	| ENUM IDENTIFIER '{' enumerator_list '}' {
+		$$.n = &ASTEnum{
+			ident: &ASTIdentifier{ident: $2.str},
+			entries: $4.n.(ASTEnumEntryList),
+		}
+	}
+	| ENUM IDENTIFIER {
+		// TODO: still need to parse for typedef
+		$$.n = &ASTEnum {
+			ident: &ASTIdentifier{ident: $2.str},
+		}
+	}
 	;
 
 enumerator_list 
 	: enumerator { 
-		$1.n.(ASTEnum).firstEnum = true
-		$$.n = ASTEnumList{$1.n} 
-		}
+		$$.n = ASTEnumEntryList{$1.n.(*ASTEnumEntry)}
+	} 
 	| enumerator_list ',' enumerator {
-		li := $1.n.(ASTEnumList)
-		li = append(li, $2.n)
+		li := $1.n.(ASTEnumEntryList)
+		li = append(li, $3.n.(*ASTEnumEntry))
 		$$.n = li
 	}
 	;
 
 enumerator
-	: IDENTIFIER {$$.n = ASTEnum{ident: $1, value: nil, firstEnum: false}}
-	| IDENTIFIER '=' constant_expression {$$.n = ASTEnum{ident: $1, value: *$1.n, firstEnum: false}}
+	: IDENTIFIER {
+		$$.n = &ASTEnumEntry{
+			ident: &ASTIdentifier{ident: $1.str},
+			value: nil,
+		}
+	}
+	| IDENTIFIER '=' constant_expression {
+		$$.n = &ASTEnumEntry{
+			ident: &ASTIdentifier{ident: $1.str},
+			value: $3.n,
+		}
+	}
 	;
 
 type_qualifier
@@ -433,14 +468,14 @@ parameter_list
 parameter_declaration
 	: declaration_specifiers declarator {
 		$$.n = &ASTParameterDeclaration{
-			specifier: $1.n,
+			specifier: $1.typ,
 			declarator: $2.n,
 		}
 	}
 	| declaration_specifiers abstract_declarator
 	| declaration_specifiers {
 		$$.n = &ASTParameterDeclaration{
-			specifier: $1.n,
+			specifier: $1.typ,
 		}
 	}
 	;

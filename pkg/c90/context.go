@@ -10,6 +10,7 @@ type Variable struct {
 	decl     *ASTDecl
 	typ      ASTType
 	isGlobal bool
+	enum     *ASTEnumEntry
 }
 
 func (v *Variable) GlobalLabel() Label {
@@ -31,14 +32,13 @@ func (m *MIPSContext) GetNewLocalOffset() int {
 
 type MIPS struct {
 	VariableScopes  VariableScopeStack
-	EnumScopes      EnumScopeStack
 	Context         *MIPSContext
 	LabelScopes     LabelScopeStack
 	CaseLabelScopes CaseLabelScopeStack
 	ReturnScopes    ReturnScopeStack
 
-	LastType VarType
-	LastEnum int
+	LastType      VarType
+	LastEnumEntry int
 
 	uniqueLabelNumber uint
 }
