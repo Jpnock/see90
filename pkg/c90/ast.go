@@ -867,16 +867,7 @@ func (t ASTEnumEntry) Describe(indent int) string {
 	return sb.String()
 }
 
-func (t ASTEnumEntry) GenerateMIPS(w io.Writer, m *MIPS) {
-	// if t.firstEnum && t.value == nil {
-	// 	m.LASTEnumEntry = 0
-	// } else if t.value == nil {
-	// 	m.LASTEnumEntry += 1
-	// } else {
-	// 	t.value.GenerateMIPS(w, m)
-	// }
-	// m.VariableScopes[len(m.VariableScopes)-1][t.ident.ident] = m.LASTEnumEntry
-}
+func (t ASTEnumEntry) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 func genIndent(indent int) string {
 	return strings.Repeat(" ", indent)
