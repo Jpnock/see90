@@ -31,12 +31,14 @@ func (m *MIPSContext) GetNewLocalOffset() int {
 
 type MIPS struct {
 	VariableScopes  VariableScopeStack
+	EnumScopes      EnumScopeStack
 	Context         *MIPSContext
 	LabelScopes     LabelScopeStack
 	CaseLabelScopes CaseLabelScopeStack
 	ReturnScopes    ReturnScopeStack
 
 	LastType VarType
+	LastEnum int
 
 	uniqueLabelNumber uint
 }

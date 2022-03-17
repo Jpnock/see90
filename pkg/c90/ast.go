@@ -573,6 +573,7 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 			}
 		} else {
 			write(w, "li $v0, %d", intValue)
+			m.LastEnum = int(intValue)
 		}
 		m.LastType = VarTypeInteger
 	} else {
@@ -737,6 +738,54 @@ func (t *ASTScope) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.NewVariableScope()
 	t.body.GenerateMIPS(w, m)
 	m.VariableScopes.Pop()
+}
+
+type ASTEnumList []ASTEnum
+
+func (t ASTEnumList) Describe(indent int) string {
+	var sb strings.Builder
+	for i, enum := range t {
+		if i != 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(enum.Describe(indent))
+	}
+	return sb.String()
+}
+
+func (t ASTEnumList) GenerateMIPS(w io.Writer, m *MIPS) {
+	for _, node := range t {
+		node.GenerateMIPS(w, m)
+	}
+}
+
+type ASTEnum struct {
+	ident     string
+	value     *ASTConstant
+	firstEnum bool
+}
+
+func (t ASTEnum) Describe(indent int) string {
+	var sb strings.Builder
+
+	sb.WriteString(t.ident)
+	if t.value != nil {
+		sb.WriteString(" = ")
+		sb.WriteString(t.value.Describe(indent))
+	}
+	sb.WriteString("\n")
+	return sb.String()
+}
+
+func (t ASTEnum) GenerateMIPS(w io.Writer, m *MIPS) {
+	if t.firstEnum && t.value == nil {
+		m.LastEnum = 0
+	} else if t.value == nil {
+		m.LastEnum += 1
+	} else {
+		t.value.GenerateMIPS(w, m)
+	}
+	m.EnumScopes[len(m.EnumScopes)-1][t.ident] = m.LastEnum
 }
 
 func genIndent(indent int) string {

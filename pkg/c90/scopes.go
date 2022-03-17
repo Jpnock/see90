@@ -112,3 +112,29 @@ func (s *ReturnScopeStack) Peek() *Label {
 	labelScope := (*s)[len(*s)-1]
 	return &labelScope
 }
+
+type EnumScope map[string]int
+
+type EnumScopeStack []EnumScope
+
+func (s *EnumScopeStack) Push(v EnumScope) {
+	*s = append(*s, v)
+}
+
+func (s *EnumScopeStack) Pop() EnumScope {
+	if len(*s) == 0 {
+		return nil
+	}
+
+	lastElem := (*s)[len(*s)-1]
+	*s = (*s)[:len(*s)-1]
+
+	return lastElem
+}
+
+func (s *EnumScopeStack) Peek() EnumScope {
+	if len(*s) == 0 {
+		return nil
+	}
+	return (*s)[len(*s)-1]
+}

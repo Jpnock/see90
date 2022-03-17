@@ -332,14 +332,21 @@ enum_specifier
 	| ENUM IDENTIFIER
 	;
 
-enumerator_list
-	: enumerator
-	| enumerator_list ',' enumerator
+enumerator_list 
+	: enumerator { 
+		$1.n.(ASTEnum).firstEnum = true
+		$$.n = ASTEnumList{$1.n} 
+		}
+	| enumerator_list ',' enumerator {
+		li := $1.n.(ASTEnumList)
+		li = append(li, $2.n)
+		$$.n = li
+	}
 	;
 
 enumerator
-	: IDENTIFIER
-	| IDENTIFIER '=' constant_expression
+	: IDENTIFIER {$$.n = ASTEnum{ident: $1, value: nil, firstEnum: false}}
+	| IDENTIFIER '=' constant_expression {$$.n = ASTEnum{ident: $1, value: *$1.n, firstEnum: false}}
 	;
 
 type_qualifier
