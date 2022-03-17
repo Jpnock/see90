@@ -420,7 +420,7 @@ func (t *ASTDecl) Describe(indent int) string {
 	}
 
 	if t.decl == nil && t.typ != nil && t.typ.typ == VarTypeEnum {
-		return fmt.Sprintf("%s%s;", genIndent(indent), t.typ.Describe(0))
+		return fmt.Sprintf("%s;", t.typ.Describe(indent))
 	}
 
 	if t.initVal == nil {
@@ -646,6 +646,11 @@ func (t *ASTType) Describe(indent int) string {
 	if t == nil {
 		panic("ASTType is nil")
 	}
+
+	if t.typ == VarTypeEnum {
+		return t.enum.Describe(indent)
+	}
+
 	return string(t.typ)
 }
 
@@ -770,44 +775,65 @@ type ASTEnum struct {
 	entries ASTEnumEntryList
 }
 
-func (t *ASTEnum) Describe(indent int) string {
-	var sb strings.Builder
-	for i, entry := range t.entries {
-		if i != 0 {
-			sb.WriteString("\n")
-		}
-		sb.WriteString(entry.Describe(0))
-	}
-	return sb.String()
-}
-
-func (t *ASTEnum) GenerateMIPS(w io.Writer, m *MIPS) {
-	if len(t.entries) == 0 {
-		return
+func NewASTEnum(ident *ASTIdentifier, entries ASTEnumEntryList) *ASTEnum {
+	enum := &ASTEnum{
+		ident:   ident,
+		entries: entries,
 	}
 
-	if t.entries[0].value == nil {
-		t.entries[0].value = &ASTConstant{value: "0"}
+	if len(entries) == 0 {
+		return enum
 	}
 
-	lastNonNilValue := t.entries[0].value
+	if enum.entries[0].value == nil {
+		enum.entries[0].value = &ASTConstant{value: "0"}
+	}
+
+	lastNonNilValue := enum.entries[0].value
 	lastNonNilValueIndex := 0
-	for i, entry := range t.entries {
+	for i, entry := range enum.entries {
 		if entry.value == nil {
-			entry.offset = i - lastNonNilValueIndex
-			entry.value = lastNonNilValue
+			enum.entries[i].offset = i - lastNonNilValueIndex
+			enum.entries[i].value = lastNonNilValue
 		} else {
 			lastNonNilValue = entry.value
 			lastNonNilValueIndex = i
 		}
+	}
+	return enum
+}
 
+func (t *ASTEnum) Describe(indent int) string {
+	indentStr := genIndent(indent)
+
+	var sb strings.Builder
+	if t.ident != nil {
+		sb.WriteString(
+			fmt.Sprintf("%senum %s {", indentStr, t.ident.Describe(0)),
+		)
+	} else {
+		sb.WriteString(
+			fmt.Sprintf("%senum {", indentStr),
+		)
+	}
+	for _, entry := range t.entries {
+		sb.WriteString("\n")
+		sb.WriteString(
+			fmt.Sprintf("%s    %s", indentStr, entry.Describe(0)),
+		)
+	}
+	sb.WriteString(fmt.Sprintf("\n%s}", indentStr))
+	return sb.String()
+}
+
+func (t *ASTEnum) GenerateMIPS(w io.Writer, m *MIPS) {
+	for _, entry := range t.entries {
 		variableEntry := entry
 		m.VariableScopes[len(m.VariableScopes)-1][entry.ident.ident] = &Variable{
 			typ:  ASTType{typ: VarTypeEnum},
 			enum: variableEntry,
 		}
 	}
-
 }
 
 type ASTEnumEntryList []*ASTEnumEntry
@@ -830,11 +856,14 @@ func (t ASTEnumEntry) Describe(indent int) string {
 	var sb strings.Builder
 
 	sb.WriteString(t.ident.ident)
-	if t.value != nil {
-		sb.WriteString(" = ")
-		sb.WriteString(t.value.Describe(indent))
+	sb.WriteString(" = (")
+	sb.WriteString(t.value.Describe(indent))
+	sb.WriteString(")")
+	if t.offset != 0 {
+		sb.WriteString(" + ")
+		sb.WriteString(fmt.Sprintf("%d", t.offset))
 	}
-	sb.WriteString("\n")
+
 	return sb.String()
 }
 

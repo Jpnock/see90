@@ -37,8 +37,7 @@ type MIPS struct {
 	CaseLabelScopes CaseLabelScopeStack
 	ReturnScopes    ReturnScopeStack
 
-	LastType      VarType
-	LastEnumEntry int
+	LastType VarType
 
 	uniqueLabelNumber uint
 }

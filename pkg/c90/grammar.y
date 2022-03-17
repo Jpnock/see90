@@ -340,21 +340,23 @@ struct_declarator
 
 enum_specifier
 	: ENUM '{' enumerator_list '}' {
-		$$.n = &ASTEnum{
-			entries: $3.n.(ASTEnumEntryList),
-		}
+		$$.n = NewASTEnum(
+			nil,
+			$3.n.(ASTEnumEntryList),
+		)
 	}
 	| ENUM IDENTIFIER '{' enumerator_list '}' {
-		$$.n = &ASTEnum{
-			ident: &ASTIdentifier{ident: $2.str},
-			entries: $4.n.(ASTEnumEntryList),
-		}
+		$$.n = NewASTEnum(
+			&ASTIdentifier{ident: $2.str},
+			$4.n.(ASTEnumEntryList),
+		)
 	}
 	| ENUM IDENTIFIER {
 		// TODO: still need to parse for typedef
-		$$.n = &ASTEnum {
-			ident: &ASTIdentifier{ident: $2.str},
-		}
+		$$.n = NewASTEnum(
+			&ASTIdentifier{ident: $2.str},
+			nil,
+		)
 	}
 	;
 
