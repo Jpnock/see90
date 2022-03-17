@@ -11,6 +11,7 @@ type Variable struct {
 	typ      ASTType
 	label    *Label
 	isGlobal bool
+	enum     *ASTEnumEntry
 }
 
 func (v *Variable) GlobalLabel() Label {

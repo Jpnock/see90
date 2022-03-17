@@ -24,6 +24,7 @@ const (
 	VarTypeUnsigned VarType = "unsigned"
 	VarTypeString   VarType = "string"
 	VarTypeTypeName VarType = "typename"
+	VarTypeEnum     VarType = "enum"
 )
 
 type Node interface {
@@ -216,6 +217,11 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 			write(w, "lw $v0, 0($v1)")
 		} else {
 			write(w, "lw $v0, %d($fp)", -variable.fpOffset)
+		}
+	case VarTypeEnum:
+		variable.enum.value.GenerateMIPS(w, m)
+		if variable.enum.offset != 0 {
+			write(w, "addiu $v0, $v0, %d", variable.enum.offset)
 		}
 	case VarTypeChar:
 		if variable.isGlobal {
@@ -416,6 +422,11 @@ func (t *ASTDecl) Describe(indent int) string {
 	if t == nil {
 		return ""
 	}
+
+	if t.decl == nil && t.typ != nil && t.typ.typ == VarTypeEnum {
+		return fmt.Sprintf("%s;", t.typ.Describe(indent))
+	}
+
 	if t.initVal == nil {
 		return fmt.Sprintf("%s%s : %s", genIndent(indent), t.decl.Describe(0), t.typ.Describe(0))
 	} else {
@@ -425,12 +436,18 @@ func (t *ASTDecl) Describe(indent int) string {
 
 // TODO: investigate at later date
 func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
+	if t.decl == nil && t.typ != nil && t.typ.typ == VarTypeEnum {
+		t.typ.GenerateMIPS(w, m)
+		return
+	}
+
 	if t.decl == nil || t.decl.identifier == nil {
 		// TODO: handle this case (mostly caused by function prototypes).
 		return
 	}
 
 	isGlobal := len(m.VariableScopes) == 1
+
 	declVar := &Variable{
 		decl:     t,
 		typ:      *t.typ,
@@ -663,18 +680,32 @@ func (t ASTPanic) GenerateMIPS(w io.Writer, m *MIPS) {}
 type ASTType struct {
 	typ     VarType
 	typName string
+
+	enum *ASTEnum
 }
 
 func (t *ASTType) Describe(indent int) string {
 	if t == nil {
 		panic("ASTType is nil")
 	}
+
+	if t.typ == VarTypeEnum {
+		return t.enum.Describe(indent)
+	}
+
 	return string(t.typ)
 }
 
 // TODO: investigate at later date
 func (t *ASTType) GenerateMIPS(w io.Writer, m *MIPS) {
-	m.LastType = t.typ
+	switch t.typ {
+	case VarTypeEnum:
+		m.LastType = VarTypeUnsigned
+		// TODO: we might have some problems with struct parameters?
+		t.enum.GenerateMIPS(w, m)
+	default:
+		m.LastType = t.typ
+	}
 }
 
 type ASTParameterList struct {
@@ -780,6 +811,105 @@ func (t *ASTScope) GenerateMIPS(w io.Writer, m *MIPS) {
 	t.body.GenerateMIPS(w, m)
 	m.VariableScopes.Pop()
 }
+
+type ASTEnum struct {
+	ident   *ASTIdentifier
+	entries ASTEnumEntryList
+}
+
+func NewASTEnum(ident *ASTIdentifier, entries ASTEnumEntryList) *ASTEnum {
+	enum := &ASTEnum{
+		ident:   ident,
+		entries: entries,
+	}
+
+	if len(entries) == 0 {
+		return enum
+	}
+
+	if enum.entries[0].value == nil {
+		enum.entries[0].value = &ASTConstant{value: "0"}
+	}
+
+	lastNonNilValue := enum.entries[0].value
+	lastNonNilValueIndex := 0
+	for i, entry := range enum.entries {
+		if entry.value == nil {
+			enum.entries[i].offset = i - lastNonNilValueIndex
+			enum.entries[i].value = lastNonNilValue
+		} else {
+			lastNonNilValue = entry.value
+			lastNonNilValueIndex = i
+		}
+	}
+	return enum
+}
+
+func (t *ASTEnum) Describe(indent int) string {
+	indentStr := genIndent(indent)
+
+	var sb strings.Builder
+	if t.ident != nil {
+		sb.WriteString(
+			fmt.Sprintf("%senum %s {", indentStr, t.ident.Describe(0)),
+		)
+	} else {
+		sb.WriteString(
+			fmt.Sprintf("%senum {", indentStr),
+		)
+	}
+	for _, entry := range t.entries {
+		sb.WriteString("\n")
+		sb.WriteString(
+			fmt.Sprintf("%s    %s", indentStr, entry.Describe(0)),
+		)
+	}
+	sb.WriteString(fmt.Sprintf("\n%s}", indentStr))
+	return sb.String()
+}
+
+func (t *ASTEnum) GenerateMIPS(w io.Writer, m *MIPS) {
+	for _, entry := range t.entries {
+		variableEntry := entry
+		m.VariableScopes[len(m.VariableScopes)-1][entry.ident.ident] = &Variable{
+			typ:  ASTType{typ: VarTypeEnum},
+			enum: variableEntry,
+		}
+	}
+}
+
+type ASTEnumEntryList []*ASTEnumEntry
+
+func (t ASTEnumEntryList) Describe(indent int) string {
+	return ""
+}
+
+func (t ASTEnumEntryList) GenerateMIPS(w io.Writer, m *MIPS) {
+	return
+}
+
+type ASTEnumEntry struct {
+	ident  *ASTIdentifier
+	value  Node
+	offset int
+}
+
+func (t ASTEnumEntry) Describe(indent int) string {
+	var sb strings.Builder
+
+	sb.WriteString(t.ident.ident)
+	sb.WriteString(" = (")
+	sb.WriteString(t.value.Describe(indent))
+	sb.WriteString(")")
+	if t.offset != 0 {
+		sb.WriteString(" + ")
+		sb.WriteString(fmt.Sprintf("%d", t.offset))
+	}
+
+	return sb.String()
+}
+
+func (t ASTEnumEntry) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 func genIndent(indent int) string {
 	return strings.Repeat(" ", indent)
