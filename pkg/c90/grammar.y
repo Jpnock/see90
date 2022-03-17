@@ -642,5 +642,5 @@ function_definition
 	: declaration_specifiers declarator declaration_list compound_statement { panic("Old K&R style function parsed (1)") }// Old K&R style C parameter declarations
 	| declaration_specifiers declarator compound_statement { $$.n = &ASTFunction{typ: $1.typ, decl: $2.n.(*ASTDirectDeclarator), body: $3.n} }
 	| declarator declaration_list compound_statement { panic("Old K&R style function parsed (2)") }
-	| declarator compound_statement { $$.n = &ASTFunction{typ: &ASTType{typ: "int"}, decl: $1.n.(*ASTDirectDeclarator), body: $2.n} } // Function without a type
+	| declarator compound_statement { $$.n = &ASTFunction{typ: &ASTType{typ: VarTypeInteger}, decl: $1.n.(*ASTDirectDeclarator), body: $2.n} } // Function without a type
 	;

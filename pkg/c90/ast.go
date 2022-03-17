@@ -22,6 +22,7 @@ const (
 	VarTypeVoid     VarType = "void"
 	VarTypeSigned   VarType = "signed"
 	VarTypeUnsigned VarType = "unsigned"
+	VarTypeString   VarType = "string"
 	VarTypeTypeName VarType = "typename"
 )
 
@@ -236,6 +237,9 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 			write(w, "lwc1 $f0, %d($fp)", -variable.fpOffset+4)
 			write(w, "lwc1 $f1, %d($fp)", -variable.fpOffset)
 		}
+	case VarTypeString:
+		write(w, "lui $v0, %%hi(%s)", *variable.label)
+		write(w, "addiu $v0, $v0, %%lo(%s)", *variable.label)
 	default:
 		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 	}
@@ -280,7 +284,7 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Load value into $v0/$f0
 	t.value.GenerateMIPS(w, m)
 
-	if t.tmpAssign {
+	if t.tmpAssign || m.LastType == VarTypeString {
 		return
 	}
 
@@ -430,6 +434,7 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	declVar := &Variable{
 		decl:     t,
 		typ:      *t.typ,
+		label:    nil,
 		isGlobal: isGlobal,
 	}
 
@@ -470,6 +475,14 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 
 	t.initVal.GenerateMIPS(w, m)
+
+	if m.LastType == VarTypeString {
+		declVar.label = &m.lastLabel
+		declVar.typ = ASTType{typ: VarTypeString, typName: ""}
+		m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
+		return
+	}
+
 	switch t.typ.typ {
 	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
 		write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
@@ -483,6 +496,8 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	default:
 		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 	}
+
+	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
 }
 
 type ASTConstant struct {
@@ -607,7 +622,34 @@ func (t *ASTStringLiteral) Describe(indent int) string {
 }
 
 // TODO: investigate at later date
-func (t *ASTStringLiteral) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t *ASTStringLiteral) GenerateMIPS(w io.Writer, m *MIPS) {
+
+	//Get slice of escaped runes
+	unquotedString, err := strconv.Unquote(t.value)
+	if err != nil {
+		panic(fmt.Errorf("string Literal unquote gave error: %v", err))
+	}
+
+	var sb strings.Builder
+	sb.WriteString("\"")
+	//for each rune convert them into hex and add \x before hand then add that to the string
+	for _, r := range unquotedString {
+		sb.WriteString(
+			fmt.Sprintf("\\x%02x", r),
+		)
+	}
+	sb.WriteString("\\000\"")
+
+	stringlabel := m.CreateUniqueLabel("string")
+
+	m.lastLabel = stringlabel
+	m.stringMap[stringlabel] = sb.String()
+
+	write(w, "lui $v0, %%hi(%s)", stringlabel)
+	write(w, "addiu $v0, $v0, %%lo(%s)", stringlabel)
+
+	m.LastType = VarTypeString
+}
 
 type ASTPanic struct{}
 

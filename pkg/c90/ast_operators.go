@@ -192,7 +192,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 	var varTyp = m.LastType
 
 	switch varTyp {
-	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeString:
 		// Store the LHS on the stack
 		stackPush(w, "$v0", 4)
 
@@ -371,7 +371,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	case ASTExprBinaryTypeEquality, ASTExprBinaryTypeNotEquality:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar, VarTypeString:
 			// XOR left with right -> if equal, the result is 0
 			write(w, "xor $v0, $t0, $t1")
 			// Check (unsigned) whether the integer is less than 1 (i.e. equal to 0)
@@ -555,8 +555,10 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 		// TODO: add info on levels of pointer dereferance you're at
 		if _, ok := t.lvalue.(*ASTIdentifier); ok {
 			switch varTyp {
-			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
+			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
 				write(w, "lw $v0, 0($v0)")
+			case VarTypeString, VarTypeChar:
+				write(w, "lb $v0, 0($v0)")
 			case VarTypeFloat:
 				write(w, "l.s $f0, 0($v0)")
 			case VarTypeDouble:
@@ -701,5 +703,11 @@ func (t *ASTIndexedExpression) GenerateMIPS(w io.Writer, m *MIPS) {
 	write(w, "addu $v0, $v0, $t0")
 
 	// TODO: change based on type
-	write(w, "lw $v0, 0($v0)")
+	switch m.LastType {
+	case VarTypeString:
+		write(w, "lb $v0, 0($v0)")
+		m.LastType = VarTypeChar
+	default:
+		write(w, "lw $v0, 0($v0")
+	}
 }

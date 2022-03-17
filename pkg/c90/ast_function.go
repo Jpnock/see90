@@ -65,6 +65,17 @@ func (t *ASTFunction) Describe(indent int) string {
 func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.NewFunction()
 	defer m.EndFunction()
+
+	defer func() {
+		// print the lables for strings declared in function
+		write(w, ".data")
+		for k, v := range m.stringMap {
+			write(w, "%s:", k)
+			write(w, ".asciz %s", v)
+		}
+		write(w, ".text")
+	}()
+
 	// Always return at end of function
 	defer write(w, "jr $ra\n")
 
@@ -269,7 +280,7 @@ func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
 
 		// Everything from herein goes into int registers
 		switch m.LastType {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar:
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar, VarTypeString:
 			write(w, "move $%d, $v0", nextIntReg)
 			numBytesUsed += 4
 		case VarTypeFloat:
