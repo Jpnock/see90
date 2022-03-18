@@ -14,11 +14,25 @@ type Variable struct {
 	enum     *ASTEnumEntry
 }
 
+func (v *Variable) IsPointer() bool {
+	if v.decl == nil || v.decl.decl == nil {
+		return false
+	}
+	return v.decl.decl.pointerDepth > 0
+}
+
+func (v *Variable) IsArray() bool {
+	if v.decl == nil || v.decl.decl == nil {
+		return false
+	}
+	return v.decl.decl.array != nil
+}
+
 func (v *Variable) GlobalLabel() Label {
 	if !v.isGlobal {
 		panic("variable not global")
 	}
-	return Label("__global_var__" + v.decl.decl.identifier.ident)
+	return Label("__global_var__" + v.decl.decl.Identifier().ident)
 }
 
 type MIPSContext struct {
@@ -28,6 +42,16 @@ type MIPSContext struct {
 func (m *MIPSContext) GetNewLocalOffset() int {
 	// TODO: change this size depending on the type of variable
 	m.CurrentStackFramePointerOffset += 8
+	return m.CurrentStackFramePointerOffset
+}
+
+func (m *MIPSContext) GetNewLocalOffsetWithMinSize(reserve int) int {
+	// Align to 8 bytes for the ABI
+	mod := reserve % 8
+	if mod != 0 {
+		reserve += 8 - mod
+	}
+	m.CurrentStackFramePointerOffset += reserve
 	return m.CurrentStackFramePointerOffset
 }
 
@@ -105,11 +129,9 @@ func (m *MIPS) EndSwitchStatement() {
 // NewFunction resets context variables relating to the current function being
 // generated.
 func (m *MIPS) NewFunction() {
-	const fp = 4
-	const sp = 4
-	const ra = 4
-	// TODO: change this
-	m.Context.CurrentStackFramePointerOffset = fp + sp + ra
+	// TODO: change this if we change our stack frame
+	const fp = 8
+	m.Context.CurrentStackFramePointerOffset = fp
 
 	//clear map of strings declared in last function
 	m.stringMap = map[Label]string{}
@@ -122,4 +144,21 @@ func (m *MIPS) EndFunction() {
 	m.VariableScopes.Pop()
 	m.ReturnScopes.Pop()
 	m.stringMap = map[Label]string{}
+}
+
+func (m *MIPS) sizeOfType(typ VarType, pointer bool) int {
+	if pointer {
+		return 4
+	}
+
+	switch typ {
+	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeFloat:
+		return 4
+	case VarTypeChar:
+		return 1
+	case VarTypeDouble:
+		return 8
+	default:
+		panic("unknown sizeof type")
+	}
 }
