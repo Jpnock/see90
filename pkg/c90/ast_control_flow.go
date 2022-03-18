@@ -157,10 +157,16 @@ func (t *ASTForLoop) Describe(indent int) string {
 	indentStr := genIndent(indent)
 
 	var sb strings.Builder
-	if t.postIterationExpr == nil {
-		sb.WriteString(fmt.Sprintf("%sfor(%s; %s) {", indentStr, t.initialiser.Describe(0), t.condition.Describe(0)))
+
+	postIterationExpr := ""
+	if t.postIterationExpr != nil {
+		postIterationExpr = t.postIterationExpr.Describe(0)
+	}
+
+	if t.initialiser != nil {
+		sb.WriteString(fmt.Sprintf("%sfor(%s; %s; %s) {", indentStr, t.initialiser.Describe(0), t.condition.Describe(0), postIterationExpr))
 	} else {
-		sb.WriteString(fmt.Sprintf("%sfor(%s; %s; %s) {", indentStr, t.initialiser.Describe(0), t.condition.Describe(0), t.postIterationExpr.Describe(0)))
+		sb.WriteString(fmt.Sprintf("%sfor( ; %s; %s) {", indentStr, t.condition.Describe(0), postIterationExpr))
 	}
 	if t.body != nil {
 		sb.WriteString("\n")
@@ -191,7 +197,9 @@ func (t *ASTForLoop) GenerateMIPS(w io.Writer, m *MIPS) {
 	defer m.LabelScopes.Pop()
 
 	// Init
-	t.initialiser.GenerateMIPS(w, m)
+	if t.initialiser != nil {
+		t.initialiser.GenerateMIPS(w, m)
+	}
 	write(w, "j %s", conditionLabel)
 
 	/// Post Iter Expression (continue from here)
