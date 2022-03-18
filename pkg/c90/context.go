@@ -37,6 +37,7 @@ type MIPS struct {
 	LabelScopes     LabelScopeStack
 	CaseLabelScopes CaseLabelScopeStack
 	ReturnScopes    ReturnScopeStack
+	StructScopes    StructScopeStack
 	stringMap       map[Label]string
 	lastLabel       Label
 
