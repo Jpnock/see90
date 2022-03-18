@@ -705,7 +705,7 @@ func (t *ASTIndexedExpression) GenerateMIPS(w io.Writer, m *MIPS) {
 	switch m.LastType {
 	case VarTypeDouble:
 		indexMultiplier = 8
-	case VarTypeChar:
+	case VarTypeChar, VarTypeString:
 		indexMultiplier = 1
 	}
 

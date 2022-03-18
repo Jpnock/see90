@@ -295,7 +295,6 @@ func storeToReturnRegister(w io.Writer, typ VarType) {
 	default:
 		write(w, "sw $v0, 0($v1)")
 	}
-	return
 }
 
 // TODO: investigate at later date
