@@ -424,6 +424,27 @@ func (t ASTArgumentExpressionList) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 }
 
+type ASTInitializerList []Node
+
+func (t ASTInitializerList) Describe(indent int) string {
+	var sb strings.Builder
+	sb.WriteString("{")
+	for i, decl := range t {
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(decl.Describe(indent))
+	}
+	sb.WriteString("}")
+	return sb.String()
+}
+
+func (t ASTInitializerList) GenerateMIPS(w io.Writer, m *MIPS) {
+	// for _, decl := range t {
+	// 	decl.GenerateMIPS(w, m)
+	// }
+}
+
 type ASTDecl struct {
 	decl    *ASTDirectDeclarator
 	typ     *ASTType
@@ -489,10 +510,12 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	reserveArrayBytes := 0
 	isArray := t.decl.array != nil
+	sizeOfElement := m.sizeOfType(t.typ.typ, isPtr)
+	numElements := 1
 	if isArray {
 		// Work out how many bytes to reserve
 		dims := t.decl.ArrayDimensions()
-		numElements := 1
+
 		if len(dims) == 0 {
 			numElements = 0
 		}
@@ -500,7 +523,6 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 			numElements *= dim
 		}
 
-		sizeOfElement := m.sizeOfType(t.typ.typ, isPtr)
 		reserveArrayBytes = sizeOfElement * numElements
 	}
 
@@ -555,6 +577,34 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 
 	// TODO: handle for arrays
+	if initializerList, ok := t.initVal.(ASTInitializerList); isArray && ok {
+		for i, entry := range initializerList {
+			if i >= numElements {
+				// Not enough space in the array
+				break
+			}
+
+			if _, ok := entry.(ASTInitializerList); ok {
+				// TODO: handle nested entries
+				panic("entry is an init list which is not yet handled")
+			}
+			// Value is in $v0/f0, so now we just need to store it
+			entry.GenerateMIPS(w, m)
+			switch t.typ.typ {
+			case VarTypeChar:
+				write(w, "sb $v0, %d($fp)", -declVar.fpOffset+i)
+			case VarTypeFloat:
+				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+(i*4))
+			case VarTypeDouble:
+				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+4+(i*4))
+				write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset+(i*4))
+			default:
+				write(w, "sw $v0, %d($fp)", -declVar.fpOffset+(i*4))
+			}
+		}
+		return
+	}
+
 	t.initVal.GenerateMIPS(w, m)
 
 	if m.LastType == VarTypeString {
