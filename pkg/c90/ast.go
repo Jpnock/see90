@@ -437,7 +437,7 @@ func (t *ASTDecl) Describe(indent int) string {
 
 // TODO: investigate at later date
 func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
-	if t.decl == nil && t.typ != nil && t.typ.typ == VarTypeEnum {
+	if t.decl == nil && t.typ != nil && t.typ.typ == VarTypeEnum || t.typ.typ == VarTypeStruct {
 		t.typ.GenerateMIPS(w, m)
 		return
 	}
@@ -709,6 +709,10 @@ func (t *ASTType) GenerateMIPS(w io.Writer, m *MIPS) {
 		m.LastType = VarTypeUnsigned
 		// TODO: we might have some problems with struct parameters?
 		t.enum.GenerateMIPS(w, m)
+	case VarTypeStruct:
+		// TODO: not sure what to set last type to
+		// TODO: we might have some problems with struct parameters?
+		t.structure.GenerateMIPS(w, m)
 	default:
 		m.LastType = t.typ
 	}
@@ -931,7 +935,18 @@ func (t ASTStruct) Describe(indent int) string {
 	return sb.String()
 }
 
-func (t ASTStruct) GenerateMIPS(w io.Writer, m *MIPS) {}
+func (t ASTStruct) GenerateMIPS(w io.Writer, m *MIPS) {
+	structEntry := Struct{ident: t.ident.ident, offsets: make(map[string]int)}
+
+	var structSize = 0
+	for _, elementSlice := range t.elements {
+		for _, element := range elementSlice {
+			structEntry.offsets[element.decl.decl.identifier.ident] = structSize
+			structSize += 8
+		}
+	}
+	structEntry.structSize = structSize
+}
 
 type ASTStructDeclarator struct {
 	decl *ASTDecl

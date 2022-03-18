@@ -1499,18 +1499,6 @@ yydefault:
 		{
 			yyVAL.n = ASTStructDeclarator{decl: &ASTDecl{decl: yyDollar[1].n.(*ASTDirectDeclarator)}}
 		}
-	case 119:
-		yyDollar = yyS[yypt-2 : yypt+1]
-//line pkg/c90/grammar.y:354
-		{
-			yyVAL.n = &ASTStructDeclarator{decl: &ASTDecl{initVal: yyDollar[2].n}}
-		}
-	case 120:
-		yyDollar = yyS[yypt-3 : yypt+1]
-//line pkg/c90/grammar.y:355
-		{
-			yyVAL.n = &ASTStructDeclarator{decl: &ASTDecl{decl: yyDollar[1].n.(*ASTDirectDeclarator)}}
-		}
 	case 121:
 		yyDollar = yyS[yypt-4 : yypt+1]
 //line pkg/c90/grammar.y:359
