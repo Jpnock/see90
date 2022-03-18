@@ -570,16 +570,8 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 			write(w, "lw $v0, 0($v0)")
 		}
 	case ASTExprPrefixUnaryTypeSizeOf:
-		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeFloat:
-			write(w, "li $v0, 4")
-		case VarTypeChar:
-			write(w, "li $v0, 1")
-		case VarTypeDouble:
-			write(w, "li $v0, 8")
-		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
-		}
+		// TODO: fix pointer behaviour
+		write(w, "li $v0, %d", m.sizeOfType(varTyp, false))
 		m.LastType = VarTypeInteger
 
 	case ASTExprPrefixUnaryTypePositive:
@@ -696,18 +688,26 @@ func (t *ASTIndexedExpression) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Index now in $t0
 	stackPop(w, "$t0", 4)
 
-	// TODO: alter based on type (currently + 4x$t0 for int)
-	write(w, "addu $v0, $v0, $t0")
-	write(w, "addu $v0, $v0, $t0")
-	write(w, "addu $v0, $v0, $t0")
-	write(w, "addu $v0, $v0, $t0")
+	// TODO: alter based on type
+	indexMultiplier := 4
+	switch m.LastType {
+	case VarTypeDouble:
+		indexMultiplier = 8
+	case VarTypeChar:
+		indexMultiplier = 1
+	}
+
+	for i := 0; i < indexMultiplier; i++ {
+		write(w, "addu $v0, $v0, $t0")
+		write(w, "addu $v1, $v1, $t0")
+	}
 
 	// TODO: change based on type
 	switch m.LastType {
-	case VarTypeString:
+	case VarTypeString, VarTypeChar:
 		write(w, "lb $v0, 0($v0)")
 		m.LastType = VarTypeChar
 	default:
-		write(w, "lw $v0, 0($v0")
+		write(w, "lw $v0, 0($v0)")
 	}
 }

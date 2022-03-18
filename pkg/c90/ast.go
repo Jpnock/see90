@@ -211,6 +211,12 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	m.LastType = variable.typ.typ
 
+	if variable.IsArray() {
+		// Arrays have the same value as their address
+		write(w, "addiu $v0, $fp, %d", -variable.fpOffset)
+		return
+	}
+
 	switch m.LastType {
 	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
 		if variable.isGlobal {
@@ -279,6 +285,8 @@ func storeToReturnRegister(w io.Writer, typ VarType) {
 	case VarTypeDouble:
 		write(w, "swc1 $f0, 4($v1)")
 		write(w, "swc1 $f1, 0($v1)")
+	case VarTypeChar:
+		write(w, "sb $v0, 0($v1)")
 	default:
 		write(w, "sw $v0, 0($v1)")
 	}
@@ -427,10 +435,15 @@ func (t *ASTDecl) Describe(indent int) string {
 		return fmt.Sprintf("%s;", t.typ.Describe(indent))
 	}
 
+	pointers := ""
+	if t.decl != nil && t.decl.pointerDepth > 0 {
+		pointers = strings.Repeat("*", t.decl.pointerDepth)
+	}
+
 	if t.initVal == nil {
-		return fmt.Sprintf("%s%s : %s", genIndent(indent), t.decl.Describe(0), t.typ.Describe(0))
+		return fmt.Sprintf("%s%s : %s%s", genIndent(indent), t.decl.Describe(0), pointers, t.typ.Describe(0))
 	} else {
-		return fmt.Sprintf("%s%s = %s : %s", genIndent(indent), t.decl.Describe(0), t.initVal.Describe(0), t.typ.Describe(0))
+		return fmt.Sprintf("%s%s = %s : %s%s", genIndent(indent), t.decl.Describe(0), t.initVal.Describe(0), pointers, t.typ.Describe(0))
 	}
 }
 
@@ -441,13 +454,17 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 		return
 	}
 
-	if t.decl == nil || t.decl.identifier == nil {
+	if t.decl == nil {
+		return
+	}
+
+	ident := t.decl.Identifier()
+	if ident == nil {
 		// TODO: handle this case (mostly caused by function prototypes).
 		return
 	}
 
 	isGlobal := len(m.VariableScopes) == 1
-
 	declVar := &Variable{
 		decl:     t,
 		typ:      *t.typ,
@@ -456,21 +473,61 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 
 	var globalLabel Label
-	if !isGlobal {
-		declVar.fpOffset = m.Context.GetNewLocalOffset()
-	} else {
+	if isGlobal {
+		// Get a new global label which we can write things to
 		globalLabel = declVar.GlobalLabel()
 	}
 
-	m.LastType = t.typ.typ
-	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
+	isPtr := t.decl.pointerDepth > 0
+	// if isPtr {
+	// 	// TODO: handle pointers
+	// }
 
+	reserveArrayBytes := 0
+	isArray := t.decl.array != nil
+	if isArray {
+		// Work out how many bytes to reserve
+		dims := t.decl.ArrayDimensions()
+		numElements := 1
+		if len(dims) == 0 {
+			numElements = 0
+		}
+		for _, dim := range dims {
+			numElements *= dim
+		}
+
+		sizeOfElement := m.sizeOfType(t.typ.typ, isPtr)
+		reserveArrayBytes = sizeOfElement * numElements
+	}
+
+	// Reserve local stack space
+	if !isGlobal {
+		if isArray {
+			declVar.fpOffset = m.Context.GetNewLocalOffsetWithMinSize(reserveArrayBytes)
+		} else {
+			declVar.fpOffset = m.Context.GetNewLocalOffset()
+		}
+	}
+
+	m.LastType = t.typ.typ
+	m.VariableScopes[len(m.VariableScopes)-1][ident.ident] = declVar
+
+	// Set initial value
 	if isGlobal {
 		// Global variable
 		write(w, ".data")
 		defer write(w, ".text")
 		write(w, "%s:", globalLabel)
+
 		if t.initVal == nil {
+			// Reserve space at the label, even if there is
+			// no initial value
+			if isArray {
+				for i := 0; i < reserveArrayBytes; i++ {
+					write(w, "    .byte 0")
+				}
+				return
+			}
 			switch t.typ.typ {
 			case VarTypeChar:
 				write(w, "  .byte 0")
@@ -481,8 +538,10 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 				write(w, "  .word 0")
 			}
 			return
+		} else {
+			// TODO: handle for arrays
+			t.initVal.GenerateMIPS(w, m)
 		}
-		t.initVal.GenerateMIPS(w, m)
 		return
 	}
 
@@ -491,12 +550,13 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 		return
 	}
 
+	// TODO: handle for arrays
 	t.initVal.GenerateMIPS(w, m)
 
 	if m.LastType == VarTypeString {
 		declVar.label = &m.lastLabel
 		declVar.typ = ASTType{typ: VarTypeString, typName: ""}
-		m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
+		m.VariableScopes[len(m.VariableScopes)-1][ident.ident] = declVar
 		return
 	}
 
@@ -514,7 +574,7 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 	}
 
-	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
+	m.VariableScopes[len(m.VariableScopes)-1][ident.ident] = declVar
 }
 
 type ASTConstant struct {
@@ -755,11 +815,35 @@ type ASTDirectDeclarator struct {
 	identifier *ASTIdentifier
 	decl       *ASTDirectDeclarator
 
-	isPointer bool
+	pointerDepth int
 
 	// parameters is nil if it's not a function, else
 	// it has zero or more parameters.
 	parameters *ASTParameterList
+
+	// Nil if the direct decl is not an array
+	array *ASTArray
+}
+
+func (t ASTDirectDeclarator) ArrayDimensions() []int {
+	if t.array == nil {
+		return nil
+	}
+
+	dimensions := t.decl.ArrayDimensions()
+	dimensions = append(dimensions, t.array.size)
+	return dimensions
+}
+
+func (t ASTDirectDeclarator) Identifier() *ASTIdentifier {
+	root := &t
+	for root != nil {
+		if root.identifier != nil {
+			return root.identifier
+		}
+		root = root.decl
+	}
+	return nil
 }
 
 func (t ASTDirectDeclarator) Describe(indent int) string {
@@ -767,11 +851,20 @@ func (t ASTDirectDeclarator) Describe(indent int) string {
 
 	if t.decl != nil {
 		sb.WriteString(t.decl.Describe(0))
+		if t.array != nil {
+			sb.WriteString("[")
+			sb.WriteString(fmt.Sprintf("%d", t.array.size))
+			sb.WriteString("]")
+		}
 		if t.parameters != nil {
 			sb.WriteString("(")
 			sb.WriteString(t.parameters.Describe(0))
 			sb.WriteString(")")
 		}
+	} else if t.array != nil {
+		sb.WriteString("[")
+		sb.WriteString(fmt.Sprintf("%d", t.array.size))
+		sb.WriteString("]")
 	} else {
 		sb.WriteString(t.identifier.Describe(0))
 	}
