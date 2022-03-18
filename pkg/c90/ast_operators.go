@@ -54,6 +54,9 @@ func stackPushFP(w io.Writer, registers ...string) {
 		panic("bad stackPushFP")
 	}
 
+	write(w, "")
+	defer write(w, "")
+
 	if len(registers) == 2 {
 		write(w, "addiu $sp, $sp, -8")
 		write(w, "swc1 %s, 4($sp)", registers[0])
@@ -70,6 +73,9 @@ func stackPopFP(w io.Writer, registers ...string) {
 		panic("bad stackPopFP")
 	}
 
+	write(w, "")
+	defer write(w, "")
+
 	if len(registers) == 2 {
 		write(w, "lwc1 %s, 4($sp)", registers[0])
 		write(w, "lwc1 %s, 0($sp)", registers[1])
@@ -82,6 +88,9 @@ func stackPopFP(w io.Writer, registers ...string) {
 }
 
 func stackPush(w io.Writer, reg string, size int) {
+	write(w, "")
+	defer write(w, "")
+
 	write(w, "addiu $sp, $sp, -8")
 	if reg != "" {
 		// TODO: alter sw based on reg type
@@ -98,6 +107,9 @@ func stackPush(w io.Writer, reg string, size int) {
 }
 
 func stackPop(w io.Writer, reg string, size int) {
+	write(w, "")
+	defer write(w, "")
+
 	if reg != "" {
 		// TODO: alter lw based on reg type
 		switch size {
