@@ -1,6 +1,7 @@
 package c90
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
@@ -126,8 +127,10 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 	// TODO: not ABI compliant
 	write(w, "move $fp, $t7")
 
-	// TODO: use correct length
-	reserve := 8 * 20
+	bodyBuf := new(bytes.Buffer)
+	t.body.GenerateMIPS(bodyBuf, m)
+
+	reserve := m.Context.CurrentStackFramePointerOffset
 	write(w, "addiu $sp, $sp, %d", -reserve)
 	defer write(w, "addiu $sp, $sp, %d", reserve)
 
@@ -177,7 +180,7 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 		}
 	}
 
-	t.body.GenerateMIPS(w, m)
+	write(w, "%s", bodyBuf.String())
 
 	write(w, "%s:", *returnLabel)
 }
