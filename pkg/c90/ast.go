@@ -559,9 +559,23 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	t.initVal.GenerateMIPS(w, m)
 
 	if m.LastType == VarTypeString {
-		declVar.label = &m.lastLabel
-		declVar.typ = ASTType{typ: VarTypeString, typName: ""}
-		m.VariableScopes[len(m.VariableScopes)-1][ident.ident] = declVar
+		if isArray {
+			strBytes := m.stringMap[m.lastLabel]
+			for i := 0; i < reserveArrayBytes; i++ {
+				if i < len(strBytes) {
+					write(w, "li $t0, %d", strBytes[i])
+					write(w, "sb $t0, %d($fp)", -declVar.fpOffset+i)
+				} else {
+					// Null terminated. If no initialiser is provided
+					// then maybe we shouldn't be doing this?
+					write(w, "sb $zero, %d($fp)", -declVar.fpOffset+i)
+				}
+			}
+		} else {
+			declVar.label = &m.lastLabel
+			declVar.typ = ASTType{typ: VarTypeString, typName: ""}
+			m.VariableScopes[len(m.VariableScopes)-1][ident.ident] = declVar
+		}
 		return
 	}
 
@@ -609,6 +623,11 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	// TODO: currently doesnt detect chars declard with an int not a char literal
 	if t.value[0] == '\'' {
+		if t.value == `'\0'` {
+			// Handle special case as this is different
+			// in Go to C.
+			t.value = `'\000'`
+		}
 		unquotedString, err := strconv.Unquote(t.value)
 		if err != nil {
 			panic(fmt.Errorf("character literal unquote gave error: %v", err))
@@ -712,20 +731,10 @@ func (t *ASTStringLiteral) GenerateMIPS(w io.Writer, m *MIPS) {
 		panic(fmt.Errorf("string Literal unquote gave error: %v", err))
 	}
 
-	var sb strings.Builder
-	sb.WriteString("\"")
-	//for each rune convert them into hex and add \x before hand then add that to the string
-	for _, r := range unquotedString {
-		sb.WriteString(
-			fmt.Sprintf("\\x%02x", r),
-		)
-	}
-	sb.WriteString("\\000\"")
-
 	stringlabel := m.CreateUniqueLabel("string")
 
 	m.lastLabel = stringlabel
-	m.stringMap[stringlabel] = sb.String()
+	m.stringMap[stringlabel] = []byte(unquotedString)
 
 	write(w, "lui $v0, %%hi(%s)", stringlabel)
 	write(w, "addiu $v0, $v0, %%lo(%s)", stringlabel)

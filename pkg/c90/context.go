@@ -61,7 +61,7 @@ type MIPS struct {
 	LabelScopes     LabelScopeStack
 	CaseLabelScopes CaseLabelScopeStack
 	ReturnScopes    ReturnScopeStack
-	stringMap       map[Label]string
+	stringMap       map[Label][]byte
 	lastLabel       Label
 
 	LastType VarType
@@ -77,7 +77,7 @@ func NewMIPS() *MIPS {
 		},
 		Context:           &MIPSContext{},
 		LabelScopes:       nil,
-		stringMap:         make(map[Label]string),
+		stringMap:         make(map[Label][]byte),
 		LastType:          VarTypeInvalid,
 		uniqueLabelNumber: 0,
 	}
@@ -134,7 +134,7 @@ func (m *MIPS) NewFunction() {
 	m.Context.CurrentStackFramePointerOffset = fp
 
 	//clear map of strings declared in last function
-	m.stringMap = map[Label]string{}
+	m.stringMap = map[Label][]byte{}
 
 	m.NewVariableScope()
 	m.ReturnScopes.Push(m.CreateUniqueLabel("function_return"))
@@ -143,7 +143,7 @@ func (m *MIPS) NewFunction() {
 func (m *MIPS) EndFunction() {
 	m.VariableScopes.Pop()
 	m.ReturnScopes.Pop()
-	m.stringMap = map[Label]string{}
+	m.stringMap = map[Label][]byte{}
 }
 
 func (m *MIPS) sizeOfType(typ VarType, pointer bool) int {
