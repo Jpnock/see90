@@ -212,6 +212,11 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.LastType = variable.typ.typ
 
 	if variable.IsArray() {
+		if variable.isGlobal {
+			write(w, "lui $v0, %%hi(%s)", globalLabel)
+			write(w, "addiu $v0, $v0, %%lo(%s)", globalLabel)
+			return
+		}
 		// Arrays have the same value as their address
 		write(w, "addiu $v0, $fp, %d", -variable.fpOffset)
 		return
