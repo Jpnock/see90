@@ -25,6 +25,7 @@ const (
 	VarTypeString   VarType = "string"
 	VarTypeTypeName VarType = "typename"
 	VarTypeEnum     VarType = "enum"
+	VarTypeStruct   VarType = "struct"
 )
 
 type Node interface {
@@ -423,7 +424,7 @@ func (t *ASTDecl) Describe(indent int) string {
 		return ""
 	}
 
-	if t.decl == nil && t.typ != nil && t.typ.typ == VarTypeEnum {
+	if t.decl == nil && t.typ != nil && t.typ.typ == VarTypeEnum || t.typ.typ == VarTypeStruct {
 		return fmt.Sprintf("%s;", t.typ.Describe(indent))
 	}
 
@@ -681,7 +682,8 @@ type ASTType struct {
 	typ     VarType
 	typName string
 
-	enum *ASTEnum
+	enum      *ASTEnum
+	structure *ASTStruct
 }
 
 func (t *ASTType) Describe(indent int) string {
@@ -691,6 +693,10 @@ func (t *ASTType) Describe(indent int) string {
 
 	if t.typ == VarTypeEnum {
 		return t.enum.Describe(indent)
+	}
+
+	if t.typ == VarTypeStruct {
+		return t.structure.Describe(indent)
 	}
 
 	return string(t.typ)
@@ -910,6 +916,66 @@ func (t ASTEnumEntry) Describe(indent int) string {
 }
 
 func (t ASTEnumEntry) GenerateMIPS(w io.Writer, m *MIPS) {}
+
+type ASTStruct struct {
+	ident    *ASTIdentifier
+	elements ASTStructDeclarationList
+}
+
+func (t ASTStruct) Describe(indent int) string {
+	var sb strings.Builder
+	sindent := genIndent(indent)
+	sb.WriteString(fmt.Sprintf("%sstruct %s {\n", sindent, t.ident.ident))
+	sb.WriteString(t.elements.Describe(indent))
+	sb.WriteString(fmt.Sprintf("%s}", sindent))
+	return sb.String()
+}
+
+func (t ASTStruct) GenerateMIPS(w io.Writer, m *MIPS) {}
+
+type ASTStructDeclarator struct {
+	decl *ASTDecl
+}
+
+func (t ASTStructDeclarator) Describe(indent int) string {
+	var sb strings.Builder
+	sb.WriteString(t.decl.Describe(indent + 4))
+	return sb.String()
+}
+
+func (t ASTStructDeclarator) GenerateMIPS(w io.Writer, m *MIPS) {}
+
+type ASTStructDeclaratorList []ASTStructDeclarator
+
+func (t ASTStructDeclaratorList) Describe(indent int) string {
+	var sb strings.Builder
+	for i, node := range t {
+		if i != 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(node.Describe(indent))
+	}
+	return sb.String()
+}
+
+func (t ASTStructDeclaratorList) GenerateMIPS(w io.Writer, m *MIPS) {}
+
+type ASTStructDeclarationList []ASTStructDeclaratorList
+
+func (t ASTStructDeclarationList) Describe(indent int) string {
+	var sb strings.Builder
+	for i, node := range t {
+		if i != 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(node.Describe(indent))
+	}
+	sb.WriteString("\n")
+
+	return sb.String()
+}
+
+func (t ASTStructDeclarationList) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 func genIndent(indent int) string {
 	return strings.Repeat(" ", indent)
