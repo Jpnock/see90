@@ -71,17 +71,7 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 		// print the lables for strings declared in function
 		write(w, ".data")
 		for k, v := range m.stringMap {
-			var sb strings.Builder
-			sb.WriteString("\"")
-			//for each rune convert them into hex and add \x before hand then add that to the string
-			for _, r := range v {
-				sb.WriteString(
-					fmt.Sprintf("\\x%02x", r),
-				)
-			}
-			sb.WriteString("\\000\"")
-			write(w, "%s:", k)
-			write(w, ".asciz %s", sb.String())
+			writeGlobalString(w, k, v)
 		}
 		write(w, ".text")
 	}()
