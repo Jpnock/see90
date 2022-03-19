@@ -12,8 +12,17 @@ func NewASTArray(sizeConstExpr Node) *ASTArray {
 		return &ASTArray{size: 0}
 	}
 
-	sizeStr := sizeConstExpr.Describe(0)
-	expr, err := govaluate.NewEvaluableExpression(sizeStr)
+	res := EvaluateConstExpr(sizeConstExpr)
+	size := int(res)
+	if size < 0 {
+		panic("negative array size")
+	}
+
+	return &ASTArray{size: size, sizeConstExpr: sizeConstExpr}
+}
+
+func EvaluateConstExpr(constExpr Node) float64 {
+	expr, err := govaluate.NewEvaluableExpression(constExpr.Describe(0))
 	if err != nil {
 		panic(err)
 	}
@@ -23,10 +32,5 @@ func NewASTArray(sizeConstExpr Node) *ASTArray {
 		panic(err)
 	}
 
-	size := int(res.(float64))
-	if size < 0 {
-		panic("negative array size")
-	}
-
-	return &ASTArray{size: size, sizeConstExpr: sizeConstExpr}
+	return res.(float64)
 }

@@ -152,13 +152,13 @@ func (m *MIPS) sizeOfType(typ VarType, pointer bool) int {
 	}
 
 	switch typ {
-	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeFloat:
+	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeFloat, VarTypeString:
 		return 4
 	case VarTypeChar:
 		return 1
 	case VarTypeDouble:
 		return 8
 	default:
-		panic("unknown sizeof type")
+		panic(fmt.Sprintf("unknown sizeof type: %s", typ))
 	}
 }
