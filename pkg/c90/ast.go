@@ -451,27 +451,28 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	if t.typ.typ == VarTypeStruct {
 		structType := *m.StructScopes[len(m.StructScopes)-1][t.typ.typName]
 		m.Context.CurrentStackFramePointerOffset += structType.structSize
+		declVar := &Variable{
+			fpOffset:  m.Context.CurrentStackFramePointerOffset,
+			decl:      t,
+			typ:       *t.typ,
+			label:     nil,
+			structure: &structType,
+			isGlobal:  isGlobal,
+		}
+		// TODO: 0 elements that arent assigned
 		for i, assignment := range t.initVal.(ASTStructInitilizerList) {
-			declVar := &Variable{
-				fpOffset: m.Context.CurrentStackFramePointerOffset - structType.offsets[i],
-				decl:     t,
-				typ:      structType.types[i],
-				label:    nil,
-				isGlobal: isGlobal,
-			}
-			m.VariableScopes[len(m.VariableScopes)-1][structType.elementIdents[i]] = declVar
 			assignment.value.GenerateMIPS(w, m)
 
 			switch structType.types[i].typ {
 			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
-				write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
+				write(w, "sw $v0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
 			case VarTypeChar:
-				write(w, "sb $v0, %d($fp)", -declVar.fpOffset)
+				write(w, "sb $v0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
 			case VarTypeFloat:
-				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset)
+				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
 			case VarTypeDouble:
-				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+4)
-				write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset)
+				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[i]+4)
+				write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset+structType.offsets[i])
 			default:
 				panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 			}

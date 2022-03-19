@@ -6,12 +6,13 @@ type Label string
 
 type Variable struct {
 	// fpOffset is the amount of subtract from fp to access the variable.
-	fpOffset int
-	decl     *ASTDecl
-	typ      ASTType
-	label    *Label
-	isGlobal bool
-	enum     *ASTEnumEntry
+	fpOffset  int
+	decl      *ASTDecl
+	typ       ASTType
+	label     *Label
+	isGlobal  bool
+	enum      *ASTEnumEntry
+	structure *Struct
 }
 
 func (v *Variable) GlobalLabel() Label {
