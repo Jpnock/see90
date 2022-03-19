@@ -524,15 +524,17 @@ direct_abstract_declarator
 
 initializer
 	: assignment_expression {$$.n = $1.n}
-	// TODO: for structs
-	| '{' initializer_list '}'
-	// TODO: for structs
-	| '{' initializer_list ',' '}'
+	| '{' initializer_list '}' { $$.n = $2.n }
+	| '{' initializer_list ',' '}' { $$.n = $2.n }
 	;
 
 initializer_list
-	: initializer
-	| initializer_list ',' initializer
+	: initializer { $$.n = ASTInitializerList{$1.n} }
+	| initializer_list ',' initializer {
+		li := $1.n.(ASTInitializerList)
+		li = append(li, $3.n)
+		$$.n = li
+	}
 	;
 
 statement

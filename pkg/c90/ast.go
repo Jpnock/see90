@@ -504,13 +504,9 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 
 	isPtr := t.decl.pointerDepth > 0
-	// if isPtr {
-	// 	// TODO: handle pointers
-	// }
+	isArray := t.decl.array != nil
 
 	reserveArrayBytes := 0
-	isArray := t.decl.array != nil
-	sizeOfElement := m.sizeOfType(t.typ.typ, isPtr)
 	numElements := 1
 	if isArray {
 		// Work out how many bytes to reserve
@@ -523,6 +519,7 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 			numElements *= dim
 		}
 
+		sizeOfElement := m.sizeOfType(t.typ.typ, isPtr)
 		reserveArrayBytes = sizeOfElement * numElements
 	}
 
@@ -565,8 +562,39 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 			}
 			return
 		} else {
-			// TODO: handle for arrays
-			t.initVal.GenerateMIPS(w, m)
+			if initializerList, ok := t.initVal.(ASTInitializerList); isArray && ok {
+				for i, entry := range initializerList {
+					if i >= numElements {
+						// Not enough space in the array
+						break
+					}
+
+					if _, ok := entry.(ASTInitializerList); ok {
+						// TODO: handle nested entries
+						panic("entry is an init list which is not yet handled")
+					}
+
+					// TODO: handle char* array
+					// Global initializers have to be constants
+					val := EvaluateConstExpr(entry)
+					switch t.typ.typ {
+					case VarTypeChar:
+						emitGlobalChar(w, uint8(val))
+					case VarTypeDouble:
+						emitGlobalDouble(w, val)
+					case VarTypeFloat:
+						emitGlobalFloat(w, float32(val))
+					case VarTypeUnsigned:
+						emitGlobalUint32(w, uint32(val))
+					default:
+						emitGlobalInt32(w, int32(val))
+					}
+				}
+
+			} else {
+				t.initVal.GenerateMIPS(w, m)
+
+			}
 		}
 		return
 	}
@@ -660,6 +688,28 @@ func (t *ASTConstant) Describe(indent int) string {
 	return fmt.Sprintf("%s%s", genIndent(indent), t.value)
 }
 
+func emitGlobalFloat(w io.Writer, val float32) {
+	write(w, "  .word %d", math.Float32bits(val))
+}
+
+func emitGlobalDouble(w io.Writer, val float64) {
+	bits := math.Float64bits(val)
+	write(w, "  .word %d", bits>>32)
+	write(w, "  .word %d", bits&0xFFFFFFFF)
+}
+
+func emitGlobalInt32(w io.Writer, val int32) {
+	write(w, "  .word %d", val)
+}
+
+func emitGlobalUint32(w io.Writer, val uint32) {
+	write(w, "  .word %d", val)
+}
+
+func emitGlobalChar(w io.Writer, val uint8) {
+	write(w, ".byte %d", val)
+}
+
 // TODO: investigate at later date
 func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 	if len(t.value) == 0 {
@@ -682,7 +732,7 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 			panic(fmt.Errorf("character literal unquote gave error: %v", err))
 		}
 		if isGlobal {
-			write(w, ".byte %d", int(unquotedString[0]))
+			emitGlobalChar(w, uint8(unquotedString[0]))
 		} else {
 			write(w, "li $v0, %d", unquotedString[0])
 		}
@@ -702,7 +752,7 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 			panic("invalid floating point constant")
 		}
 		if isGlobal {
-			write(w, "  .word %d", math.Float32bits(float32(f32)))
+			emitGlobalFloat(w, float32(f32))
 		} else {
 			write(w, "li.s $f0, %f", float32(f32))
 		}
@@ -718,7 +768,7 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 			panic("unable to convert unsinged to int")
 		}
 		if isGlobal {
-			write(w, "  .word %d", uintValue)
+			emitGlobalUint32(w, uint32(uintValue))
 		} else {
 			write(w, "li $v0, %d", uintValue)
 		}
@@ -734,7 +784,7 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 		if isGlobal {
 			if m.LastType != VarTypeDouble {
 				emittedGlobalInt = true
-				write(w, "  .word %d", intValue)
+				emitGlobalInt32(w, int32(intValue))
 			}
 		} else {
 			write(w, "li $v0, %d", intValue)
@@ -751,9 +801,7 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 	if isGlobal {
 		if !emittedGlobalInt {
-			bits := math.Float64bits(f64)
-			write(w, "  .word %d", bits>>32)
-			write(w, "  .word %d", bits&0xFFFFFFFF)
+			emitGlobalDouble(w, f64)
 		}
 		return
 	}
