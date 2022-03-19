@@ -424,8 +424,12 @@ func (t *ASTDecl) Describe(indent int) string {
 		return ""
 	}
 
-	if t.decl == nil && t.typ != nil && t.typ.typ == VarTypeEnum || t.typ.typ == VarTypeStruct {
+	if t.decl == nil && t.typ != nil && (t.typ.typ == VarTypeEnum || t.typ.typ == VarTypeStruct) {
 		return fmt.Sprintf("%s;", t.typ.Describe(indent))
+	}
+
+	if t.typ.typ == VarTypeStruct {
+		return fmt.Sprintf("%s%s = { %s } : struct %s", genIndent(indent), t.decl.Describe(0), t.initVal.Describe(0), t.typ.typName)
 	}
 
 	if t.initVal == nil {
@@ -442,12 +446,43 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 		return
 	}
 
+	isGlobal := len(m.VariableScopes) == 1
+
+	if t.typ.typ == VarTypeStruct {
+		structType := *m.StructScopes[len(m.StructScopes)-1][t.typ.typName]
+		m.Context.CurrentStackFramePointerOffset += structType.structSize
+		for i, assignment := range t.initVal.(ASTStructInitilizerList) {
+			declVar := &Variable{
+				fpOffset: m.Context.CurrentStackFramePointerOffset - structType.offsets[i],
+				decl:     t,
+				typ:      structType.types[i],
+				label:    nil,
+				isGlobal: isGlobal,
+			}
+			m.VariableScopes[len(m.VariableScopes)-1][structType.elementIdents[i]] = declVar
+			assignment.value.GenerateMIPS(w, m)
+
+			switch structType.types[i].typ {
+			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+				write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
+			case VarTypeChar:
+				write(w, "sb $v0, %d($fp)", -declVar.fpOffset)
+			case VarTypeFloat:
+				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset)
+			case VarTypeDouble:
+				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+4)
+				write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset)
+			default:
+				panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+			}
+		}
+		return
+	}
+
 	if t.decl == nil || t.decl.identifier == nil {
 		// TODO: handle this case (mostly caused by function prototypes).
 		return
 	}
-
-	isGlobal := len(m.VariableScopes) == 1
 
 	declVar := &Variable{
 		decl:     t,
@@ -818,6 +853,7 @@ func (t *ASTScope) GenerateMIPS(w io.Writer, m *MIPS) {
 		return
 	}
 	m.NewVariableScope()
+	m.NewStructScope()
 	t.body.GenerateMIPS(w, m)
 	m.VariableScopes.Pop()
 }
@@ -936,16 +972,19 @@ func (t ASTStruct) Describe(indent int) string {
 }
 
 func (t ASTStruct) GenerateMIPS(w io.Writer, m *MIPS) {
-	structEntry := Struct{ident: t.ident.ident, offsets: make(map[string]int)}
+	structEntry := Struct{ident: t.ident.ident, offsets: make(map[int]int), types: make(map[int]ASTType), elementIdents: make(map[int]string)}
 
 	var structSize = 0
-	for _, elementSlice := range t.elements {
-		for _, element := range elementSlice {
-			structEntry.offsets[element.decl.decl.identifier.ident] = structSize
+	for i, elementSlice := range t.elements {
+		for j, element := range elementSlice {
+			structEntry.offsets[i+j] = structSize
+			structEntry.types[i+j] = *element.decl.typ
+			structEntry.elementIdents[i+j] = element.decl.decl.identifier.ident
 			structSize += 8
 		}
 	}
 	structEntry.structSize = structSize
+	m.StructScopes[len(m.StructScopes)-1][t.ident.ident] = &structEntry
 }
 
 type ASTStructDeclarator struct {
@@ -991,6 +1030,24 @@ func (t ASTStructDeclarationList) Describe(indent int) string {
 }
 
 func (t ASTStructDeclarationList) GenerateMIPS(w io.Writer, m *MIPS) {}
+
+type ASTStructInitilizerList []*ASTAssignment
+
+func (t ASTStructInitilizerList) Describe(indent int) string {
+	var sb strings.Builder
+
+	for i, assignment := range t {
+		sb.WriteString(assignment.Describe(indent))
+		if i != len(t)-1 {
+			sb.WriteString(", ")
+		}
+
+	}
+
+	return sb.String()
+}
+
+func (t ASTStructInitilizerList) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 func genIndent(indent int) string {
 	return strings.Repeat(" ", indent)

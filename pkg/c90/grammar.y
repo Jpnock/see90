@@ -294,7 +294,7 @@ type_specifier
 	| SIGNED { $$.typ = &ASTType{typ: VarTypeSigned} }
 	| UNSIGNED { $$.typ = &ASTType{typ: VarTypeUnsigned} }
 	| struct_or_union_specifier { 
-		$$.typ = &ASTType{typ: VarTypeStruct, structure: $1.n.(*ASTStruct)}
+		$$.typ = &ASTType{typ: VarTypeStruct, typName: $1.n.(*ASTStruct).ident.ident, structure: $1.n.(*ASTStruct)}
 	}
 	| enum_specifier { 
 		$$.typ = &ASTType{typ: VarTypeEnum, enum: $1.n.(*ASTEnum)}
@@ -307,7 +307,9 @@ struct_or_union_specifier
 		$$.n = &ASTStruct{ident: &ASTIdentifier{ident: $2.str}, elements: $4.n.(ASTStructDeclarationList)}
 	}
 	| struct_or_union '{' struct_declaration_list '}'
-	| struct_or_union IDENTIFIER
+	| struct_or_union IDENTIFIER {
+		$$.n = &ASTStruct{ident: &ASTIdentifier{ident: $2.str}}
+	}
 	;
 
 struct_or_union
@@ -531,14 +533,18 @@ direct_abstract_declarator
 initializer
 	: assignment_expression {$$.n = $1.n}
 	// TODO: for structs
-	| '{' initializer_list '}'
+	| '{' initializer_list '}' {$$.n = $2.n}
 	// TODO: for structs
-	| '{' initializer_list ',' '}'
+	| '{' initializer_list ',' '}' {$$.n = $2.n}
 	;
 
 initializer_list
-	: initializer
-	| initializer_list ',' initializer
+	: initializer {$$.n = ASTStructInitilizerList{$1.n.(*ASTAssignment)}}
+	| initializer_list ',' initializer {
+		li := $1.n.(ASTStructInitilizerList)
+		li = append(li, $3.n.(*ASTAssignment))
+		$$.n = li
+	}
 	;
 
 statement
