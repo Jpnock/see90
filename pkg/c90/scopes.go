@@ -112,11 +112,12 @@ func (s *ReturnScopeStack) Peek() *Label {
 }
 
 type Struct struct {
-	ident         string
-	structSize    int
-	offsets       map[int]int
-	types         map[int]ASTType
-	elementIdents map[int]string
+	ident           string
+	structSize      int
+	totalOffsetSize int
+	offsets         map[int]int
+	types           map[int]ASTType
+	elementIdents   map[string]int
 }
 
 type StructScope map[string]*Struct

@@ -213,7 +213,7 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.LastType = variable.typ.typ
 
 	switch m.LastType {
-	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeStruct:
 		if variable.isGlobal {
 			write(w, "lw $v0, 0($v1)")
 		} else {
@@ -428,7 +428,7 @@ func (t *ASTDecl) Describe(indent int) string {
 		return fmt.Sprintf("%s;", t.typ.Describe(indent))
 	}
 
-	if t.typ.typ == VarTypeStruct {
+	if t.typ.typ == VarTypeStruct && t.initVal != nil {
 		return fmt.Sprintf("%s%s = { %s } : struct %s", genIndent(indent), t.decl.Describe(0), t.initVal.Describe(0), t.typ.typName)
 	}
 
@@ -441,16 +441,15 @@ func (t *ASTDecl) Describe(indent int) string {
 
 // TODO: investigate at later date
 func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
-	if t.decl == nil && t.typ != nil && t.typ.typ == VarTypeEnum || t.typ.typ == VarTypeStruct {
+	if t.decl == nil && t.typ != nil && (t.typ.typ == VarTypeEnum || t.typ.typ == VarTypeStruct) {
 		t.typ.GenerateMIPS(w, m)
 		return
 	}
-
 	isGlobal := len(m.VariableScopes) == 1
 
 	if t.typ.typ == VarTypeStruct {
 		structType := *m.StructScopes[len(m.StructScopes)-1][t.typ.typName]
-		m.Context.CurrentStackFramePointerOffset += structType.structSize
+		m.Context.CurrentStackFramePointerOffset += structType.totalOffsetSize
 		declVar := &Variable{
 			fpOffset:  m.Context.CurrentStackFramePointerOffset,
 			decl:      t,
@@ -459,22 +458,52 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 			structure: &structType,
 			isGlobal:  isGlobal,
 		}
-		// TODO: 0 elements that arent assigned
-		for i, assignment := range t.initVal.(ASTStructInitilizerList) {
-			assignment.value.GenerateMIPS(w, m)
+		m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
 
-			switch structType.types[i].typ {
-			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
-				write(w, "sw $v0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
-			case VarTypeChar:
-				write(w, "sb $v0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
-			case VarTypeFloat:
-				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
-			case VarTypeDouble:
-				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[i]+4)
-				write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset+structType.offsets[i])
-			default:
-				panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+		var numOfInitilizers int
+		if t.initVal != nil {
+			numOfInitilizers = len(t.initVal.(ASTStructInitilizerList))
+			for i, assignment := range t.initVal.(ASTStructInitilizerList) {
+				assignment.value.GenerateMIPS(w, m)
+
+				switch structType.types[i].typ {
+				case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+					write(w, "sw $v0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
+				case VarTypeChar:
+					write(w, "sb $v0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
+				case VarTypeFloat:
+					write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
+				case VarTypeDouble:
+					write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[i]+4)
+					write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset+structType.offsets[i])
+				default:
+					panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+				}
+			}
+		} else {
+			numOfInitilizers = 0
+		}
+
+		numOfElements := len(structType.elementIdents)
+		if numOfElements > numOfInitilizers {
+			for i := 0; i < (numOfInitilizers - numOfElements); i++ {
+				switch structType.types[numOfInitilizers+i].typ {
+				case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+					write(w, "addiu $v0, $v0, 0")
+					write(w, "sw $v0, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i])
+				case VarTypeChar:
+					write(w, "addiu $v0, $v0, 0")
+					write(w, "sb $v0, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i])
+				case VarTypeFloat:
+					write(w, "li.s $f0, 0")
+					write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i])
+				case VarTypeDouble:
+					write(w, "li.d $f0, 0")
+					write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i]+4)
+					write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i])
+				default:
+					panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+				}
 			}
 		}
 		return
@@ -973,17 +1002,31 @@ func (t ASTStruct) Describe(indent int) string {
 }
 
 func (t ASTStruct) GenerateMIPS(w io.Writer, m *MIPS) {
-	structEntry := Struct{ident: t.ident.ident, offsets: make(map[int]int), types: make(map[int]ASTType), elementIdents: make(map[int]string)}
+	structEntry := Struct{ident: t.ident.ident, offsets: make(map[int]int), types: make(map[int]ASTType), elementIdents: make(map[string]int)}
 
 	var structSize = 0
+	var totalOffsetSize = 0
 	for i, elementSlice := range t.elements {
 		for j, element := range elementSlice {
-			structEntry.offsets[i+j] = structSize
+			structEntry.offsets[i+j] = totalOffsetSize
 			structEntry.types[i+j] = *element.decl.typ
-			structEntry.elementIdents[i+j] = element.decl.decl.identifier.ident
-			structSize += 8
+			structEntry.elementIdents[element.decl.decl.identifier.ident] = i + j
+			totalOffsetSize += 8
+			switch element.decl.typ.typ {
+			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeFloat:
+				structSize += 4
+			case VarTypeChar:
+				structSize += 1
+			case VarTypeDouble:
+				structSize += 8
+			default:
+				panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+			}
+
 		}
 	}
+
+	structEntry.totalOffsetSize = totalOffsetSize
 	structEntry.structSize = structSize
 	m.StructScopes[len(m.StructScopes)-1][t.ident.ident] = &structEntry
 }
@@ -1049,6 +1092,48 @@ func (t ASTStructInitilizerList) Describe(indent int) string {
 }
 
 func (t ASTStructInitilizerList) GenerateMIPS(w io.Writer, m *MIPS) {}
+
+type ASTStructElement struct {
+	structImp *ASTIdentifier
+	ident     string
+}
+
+func (t ASTStructElement) Describe(indent int) string {
+	return fmt.Sprintf("%s.%s", t.structImp.ident, t.ident)
+}
+
+func (t ASTStructElement) GenerateMIPS(w io.Writer, m *MIPS) {
+	structVar := *m.VariableScopes[len(m.VariableScopes)-1][t.structImp.ident]
+	elementIndent := structVar.structure.elementIdents[t.ident]
+	elementOffset := structVar.structure.offsets[elementIndent]
+
+	var globalLabel Label
+	if structVar.isGlobal {
+		globalLabel = structVar.GlobalLabel()
+
+		// Load the address of the global into $v1
+		write(w, "lui $v1, %%hi(%s)", globalLabel)
+		write(w, "addiu $v1, $v1, %%lo(%s)", globalLabel)
+	} else {
+		// Put the address of the local into $v1
+		write(w, "addiu $v1, $fp, %d", -structVar.fpOffset+elementOffset)
+	}
+
+	switch structVar.structure.types[elementIndent].typ {
+	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+		write(w, "lw $v0, %d($fp)", -structVar.fpOffset+elementOffset)
+	case VarTypeChar:
+		write(w, "lb $v0, %d($fp)", -structVar.fpOffset+elementOffset)
+	case VarTypeFloat:
+		write(w, "lwc1 $f0, %d($fp)", -structVar.fpOffset+elementOffset)
+	case VarTypeDouble:
+		write(w, "lwc1 $f0, %d($fp)", -structVar.fpOffset+elementOffset+4)
+		write(w, "lwc1 $f1, %d($fp)", -structVar.fpOffset+elementOffset)
+	default:
+		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+	}
+	m.LastType = structVar.structure.types[elementIndent].typ
+}
 
 func genIndent(indent int) string {
 	return strings.Repeat(" ", indent)

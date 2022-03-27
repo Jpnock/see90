@@ -66,7 +66,7 @@ postfix_expression
 			arguments: $3.n.(ASTArgumentExpressionList),
 		}
 	}
-	| postfix_expression '.' IDENTIFIER
+	| postfix_expression '.' IDENTIFIER { $$.n = &ASTStructElement{structImp: $1.n.(*ASTIdentifier), ident: $3.str} }
 	| postfix_expression PTR_OP IDENTIFIER {}
 	| postfix_expression INC_OP {
 		$$.n = &ASTExprSuffixUnary{typ: ASTExprSuffixUnaryTypeIncrement, lvalue: $1.n}

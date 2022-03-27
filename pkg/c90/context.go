@@ -53,6 +53,9 @@ func NewMIPS() *MIPS {
 			// Global scope is always the first level
 			VariableScope{},
 		},
+		StructScopes: StructScopeStack{
+			StructScope{},
+		},
 		Context:           &MIPSContext{},
 		LabelScopes:       nil,
 		stringMap:         make(map[Label]string),

@@ -923,6 +923,12 @@ yydefault:
 				arguments: yyDollar[3].n.(ASTArgumentExpressionList),
 			}
 		}
+	case 9:
+		yyDollar = yyS[yypt-3 : yypt+1]
+//line pkg/c90/grammar.y:69
+		{
+			yyVAL.n = &ASTStructElement{structImp: yyDollar[1].n.(*ASTIdentifier), ident: yyDollar[3].str}
+		}
 	case 10:
 		yyDollar = yyS[yypt-3 : yypt+1]
 //line pkg/c90/grammar.y:70

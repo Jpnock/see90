@@ -577,6 +577,9 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 			write(w, "li $v0, 1")
 		case VarTypeDouble:
 			write(w, "li $v0, 8")
+		case VarTypeStruct:
+			structVar := m.VariableScopes[len(m.VariableScopes)-1][t.lvalue.(*ASTBrackets).Node.(ASTExpression)[0].value.(*ASTIdentifier).ident]
+			write(w, "li $v0, %d", structVar.structure.structSize)
 		default:
 			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
