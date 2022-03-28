@@ -97,16 +97,17 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 		directDecl, ok := param.declarator.(*ASTDirectDeclarator)
 		if ok {
 			v := &Variable{
-				fpOffset: -nextStackOffset,
-				decl:     nil,
-				typ:      paramType,
+				fpOffset:   -nextStackOffset,
+				decl:       nil,
+				directDecl: directDecl,
+				typ:        paramType,
 			}
 			m.VariableScopes[len(m.VariableScopes)-1][directDecl.identifier.ident] = v
 			arguments = append(arguments, v)
 		}
 
 		allocatedSize := 4
-		if paramType.typ == VarTypeDouble {
+		if directDecl.array == nil && directDecl.pointerDepth == 0 && paramType.typ == VarTypeDouble {
 			allocatedSize += 4
 		}
 		nextStackOffset += allocatedSize
@@ -135,14 +136,23 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	nextIntReg := 4
 	for i, param := range arguments {
-		if nextIntReg > 7 || (param.typ.typ == VarTypeDouble && nextIntReg == 7) {
+		paramTyp := param.typ.typ
+		if param.IsPointer() || param.IsArray() {
+			paramTyp = VarTypeUnsigned
+		}
+
+		if nextIntReg > 7 || (paramTyp == VarTypeDouble && nextIntReg == 7) {
 			// We only need to save the first four args max.
 			break
 		}
 
 		firstParamTyp := arguments[0].typ.typ
+		if arguments[0].IsPointer() || arguments[0].IsArray() {
+			firstParamTyp = VarTypeUnsigned
+		}
+
 		if i < 2 && (firstParamTyp == VarTypeFloat || firstParamTyp == VarTypeDouble) {
-			if param.typ.typ == VarTypeFloat {
+			if paramTyp == VarTypeFloat {
 				if i == 0 {
 					write(w, "swc1 $f12, %d($fp)", -param.fpOffset)
 				} else {
@@ -150,7 +160,7 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 				}
 				nextIntReg += 1
 				continue
-			} else if param.typ.typ == VarTypeDouble {
+			} else if paramTyp == VarTypeDouble {
 				if i == 0 {
 					write(w, "swc1 $f12, %d($fp)", -param.fpOffset+4)
 					write(w, "swc1 $f13, %d($fp)", -param.fpOffset)
@@ -165,7 +175,7 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 			}
 		}
 
-		if param.typ.typ == VarTypeDouble {
+		if paramTyp == VarTypeDouble {
 			if nextIntReg%2 != 0 {
 				// As doubles are even register aligned
 				nextIntReg += 1
@@ -173,6 +183,9 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 			write(w, "sw $%d, %d($fp)", nextIntReg, -param.fpOffset)
 			write(w, "sw $%d, %d($fp)", nextIntReg+1, -param.fpOffset)
 			nextIntReg += 2
+		} else if paramTyp == VarTypeChar {
+			write(w, "sb $%d, %d($fp)", nextIntReg, -param.fpOffset)
+			nextIntReg += 1
 		} else {
 			write(w, "sw $%d, %d($fp)", nextIntReg, -param.fpOffset)
 			nextIntReg += 1
@@ -225,7 +238,7 @@ func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
 		if numBytesUsed >= 16 || lastIntRegisterUsed >= 7 {
 			// Put variables on stack as we've overflowed the register space
 			// available.
-			switch m.LastType {
+			switch m.LastType() {
 			case VarTypeFloat:
 				overflowArgsStackPopAmount += 4
 				stackPushFP(w, "$f0")
@@ -241,7 +254,7 @@ func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
 			continue
 		}
 
-		if i == 0 && (m.LastType == VarTypeFloat || m.LastType == VarTypeDouble) {
+		if i == 0 && (m.LastType() == VarTypeFloat || m.LastType() == VarTypeDouble) {
 			// Check if we need to handle the edgecase
 			firstRegisterType = regTypeFP
 		}
@@ -249,7 +262,7 @@ func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
 		nextIntReg := lastIntRegisterUsed + 1
 
 		if firstRegisterType == regTypeFP && i < 2 {
-			if m.LastType == VarTypeFloat {
+			if m.LastType() == VarTypeFloat {
 				if nextIntReg == 4 {
 					write(w, "mov.s $f12, $f0")
 				} else {
@@ -261,7 +274,7 @@ func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
 
 				// Process next arg
 				continue
-			} else if m.LastType == VarTypeDouble {
+			} else if m.LastType() == VarTypeDouble {
 				if nextIntReg == 4 {
 					write(w, "mov.s $f12, $f0")
 					write(w, "mov.s $f13, $f1")
@@ -281,7 +294,7 @@ func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
 		}
 
 		// Everything from herein goes into int registers
-		switch m.LastType {
+		switch m.LastType() {
 		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeChar, VarTypeString:
 			write(w, "move $%d, $v0", nextIntReg)
 			numBytesUsed += 4
