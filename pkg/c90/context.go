@@ -188,6 +188,7 @@ func (m *MIPS) NewFunction() {
 
 func (m *MIPS) EndFunction() {
 	m.VariableScopes.Pop()
+	m.StructScopes.Pop()
 	m.ReturnScopes.Pop()
 	m.stringMap = map[Label][]byte{}
 }

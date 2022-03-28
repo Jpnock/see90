@@ -1146,6 +1146,7 @@ func (t *ASTScope) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.NewStructScope()
 	t.body.GenerateMIPS(w, m)
 	m.VariableScopes.Pop()
+	m.StructScopes.Pop()
 }
 
 type ASTEnum struct {
