@@ -187,6 +187,7 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 		return
 	}
 
+	write(w, "%s:", string(m.CreateUniqueLabel("identgen")))
 	currentlyInGlobalScope := len(m.VariableScopes) == 1
 	if currentlyInGlobalScope {
 		return
@@ -223,8 +224,15 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 			write(w, "addiu $v0, $v0, %%lo(%s)", globalLabel)
 			return
 		}
-		// Arrays have the same value as their address
 		write(w, "addiu $v0, $fp, %d", -variable.fpOffset)
+
+		if variable.isLocalDataString {
+			// TODO: make this better
+			// array is in .data section, so we need to dereference.
+			write(w, "lw $v0, 0($v0)")
+			write(w, "lw $v1, 0($v1)")
+		}
+		// Arrays have the same value as their address
 		return
 	}
 
@@ -538,6 +546,13 @@ func (t *ASTDecl) generateLocalVarMIPS(w io.Writer, m *MIPS, ident *ASTIdentifie
 		}
 	}
 
+	assignment, ok := t.initVal.(*ASTAssignment)
+	if ok {
+		if _, ok := assignment.value.(*ASTStringLiteral); ok {
+			declVar.isLocalDataString = true
+		}
+	}
+
 	for i, element := range elements {
 		// Value is in $v0/f0, so now we just need to store it
 		element.GenerateMIPS(w, m)
@@ -578,6 +593,7 @@ func (t *ASTDecl) generateLocalVarMIPS(w io.Writer, m *MIPS, ident *ASTIdentifie
 				declVar.label = &m.lastLabel
 				declVar.typ = ASTType{typ: VarTypeString, typName: ""}
 				m.VariableScopes[len(m.VariableScopes)-1][ident.ident] = declVar
+				write(w, "sw $v0, %d($fp)", -declVar.fpOffset+(i*4))
 			}
 		default:
 			write(w, "sw $v0, %d($fp)", -declVar.fpOffset+(i*4))
@@ -866,8 +882,8 @@ func (t *ASTStringLiteral) GenerateMIPS(w io.Writer, m *MIPS) {
 	if isGlobal {
 		writeGlobalString(w, stringlabel, []byte(unquotedString))
 	} else {
-		write(w, "lui $v0, %%hi(%s)", stringlabel)
-		write(w, "addiu $v0, $v0, %%lo(%s)", stringlabel)
+		write(w, "lui $v0, %%hi(%s_data)", stringlabel)
+		write(w, "addiu $v0, $v0, %%lo(%s_data)", stringlabel)
 	}
 
 	m.SetLastType(VarTypeChar)
@@ -1164,6 +1180,8 @@ func writeGlobalString(w io.Writer, label Label, value []byte) {
 		)
 	}
 	sb.WriteString("\\000\"")
-	write(w, "%s:", label)
+	write(w, "%s_data:", label)
 	write(w, ".asciz %s", sb.String())
+	write(w, "%s:", label)
+	write(w, ".word %s_data", label)
 }
