@@ -184,6 +184,8 @@ func (m *MIPS) NewSwitchStatement() (bottomLabel Label) {
 func (m *MIPS) EndSwitchStatement() {
 	m.VariableScopes.Pop()
 	m.LabelScopes.Pop()
+	m.StructScopes.Pop()
+	m.TypeDefScopes.Pop()
 	m.CaseLabelScopes.Pop()
 }
 
@@ -206,6 +208,7 @@ func (m *MIPS) NewFunction() {
 func (m *MIPS) EndFunction() {
 	m.VariableScopes.Pop()
 	m.StructScopes.Pop()
+	m.TypeDefScopes.Pop()
 	m.ReturnScopes.Pop()
 	m.stringMap = map[Label][]byte{}
 }
