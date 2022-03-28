@@ -269,8 +269,17 @@ init_declarator_list
 	;
 
 init_declarator
-	: declarator { $$.n = &ASTDecl{decl: $1.n.(*ASTDirectDeclarator)} }
-	| declarator '=' initializer { $$.n = &ASTDecl{decl: $1.n.(*ASTDirectDeclarator), initVal: $3.n} }
+	: declarator { 
+		$$.n = &ASTDecl{
+			decl: $1.n.(*ASTDirectDeclarator),
+		} 
+	}
+	| declarator '=' initializer { 
+		$$.n = &ASTDecl{
+			decl: $1.n.(*ASTDirectDeclarator),
+			initVal: $3.n,
+		} 
+	}
 	;
 
 storage_class_specifier
