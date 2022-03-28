@@ -1,25 +1,43 @@
 package c90
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Label string
 
 type Variable struct {
 	// fpOffset is the amount of subtract from fp to access the variable.
-	fpOffset  int
-	decl      *ASTDecl
-	typ       ASTType
-	label     *Label
-	isGlobal  bool
-	enum      *ASTEnumEntry
-	structure *Struct
+	fpOffset          int
+	decl              *ASTDecl
+	directDecl        *ASTDirectDeclarator
+	typ               ASTType
+	label             *Label
+	isGlobal          bool
+	isLocalDataString bool
+	enum              *ASTEnumEntry
+	structure         *Struct
+}
+
+func (v *Variable) IsPointer() bool {
+	if v.directDecl == nil {
+		return false
+	}
+	return v.directDecl.pointerDepth > 0
+}
+
+func (v *Variable) IsArray() bool {
+	if v.directDecl == nil {
+		return false
+	}
+	return v.directDecl.array != nil
 }
 
 func (v *Variable) GlobalLabel() Label {
 	if !v.isGlobal {
 		panic("variable not global")
 	}
-	return Label("__global_var__" + v.decl.decl.identifier.ident)
+	return Label("__global_var__" + v.directDecl.Identifier().ident)
 }
 
 type MIPSContext struct {
@@ -32,6 +50,16 @@ func (m *MIPSContext) GetNewLocalOffset() int {
 	return m.CurrentStackFramePointerOffset
 }
 
+func (m *MIPSContext) GetNewLocalOffsetWithMinSize(reserve int) int {
+	// Align to 8 bytes for the ABI
+	mod := reserve % 8
+	if mod != 0 {
+		reserve += 8 - mod
+	}
+	m.CurrentStackFramePointerOffset += reserve
+	return m.CurrentStackFramePointerOffset
+}
+
 type MIPS struct {
 	VariableScopes  VariableScopeStack
 	Context         *MIPSContext
@@ -39,10 +67,11 @@ type MIPS struct {
 	CaseLabelScopes CaseLabelScopeStack
 	ReturnScopes    ReturnScopeStack
 	StructScopes    StructScopeStack
-	stringMap       map[Label]string
+	stringMap       map[Label][]byte
 	lastLabel       Label
 
-	LastType VarType
+	lastType     VarType
+	pointerLevel int
 
 	uniqueLabelNumber uint
 }
@@ -58,10 +87,34 @@ func NewMIPS() *MIPS {
 		},
 		Context:           &MIPSContext{},
 		LabelScopes:       nil,
-		stringMap:         make(map[Label]string),
-		LastType:          VarTypeInvalid,
+		stringMap:         make(map[Label][]byte),
+		lastType:          VarTypeInvalid,
 		uniqueLabelNumber: 0,
 	}
+}
+
+func (m *MIPS) LastType() VarType {
+	if m.pointerLevel != 0 {
+		return VarTypeUnsigned
+	}
+	if m.pointerLevel == 1 && m.lastType == VarTypeChar {
+		return VarTypeString
+	}
+	return m.lastType
+}
+
+func (m *MIPS) SetLastType(typ VarType) {
+	//	log.Printf("setting type to %v\n", typ)
+	//debug.PrintStack()
+
+	if typ == VarTypeString {
+		m.lastType = VarTypeChar
+		m.pointerLevel = 1
+		return
+	}
+
+	m.lastType = typ
+	m.pointerLevel = 0
 }
 
 // CreateUniqueLabel takes the provided name and returns a unique label, using
@@ -121,14 +174,12 @@ func (m *MIPS) EndSwitchStatement() {
 // NewFunction resets context variables relating to the current function being
 // generated.
 func (m *MIPS) NewFunction() {
-	const fp = 4
-	const sp = 4
-	const ra = 4
-	// TODO: change this
-	m.Context.CurrentStackFramePointerOffset = fp + sp + ra
+	// TODO: change this if we change our stack frame
+	const fp = 8
+	m.Context.CurrentStackFramePointerOffset = fp
 
 	//clear map of strings declared in last function
-	m.stringMap = map[Label]string{}
+	m.stringMap = map[Label][]byte{}
 
 	m.NewVariableScope()
 	m.NewStructScope()
@@ -138,5 +189,22 @@ func (m *MIPS) NewFunction() {
 func (m *MIPS) EndFunction() {
 	m.VariableScopes.Pop()
 	m.ReturnScopes.Pop()
-	m.stringMap = map[Label]string{}
+	m.stringMap = map[Label][]byte{}
+}
+
+func (m *MIPS) sizeOfType(typ VarType, pointer bool) int {
+	if pointer {
+		return 4
+	}
+
+	switch typ {
+	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeFloat, VarTypeString:
+		return 4
+	case VarTypeChar:
+		return 1
+	case VarTypeDouble:
+		return 8
+	default:
+		panic(fmt.Sprintf("unknown sizeof type: %s", typ))
+	}
 }

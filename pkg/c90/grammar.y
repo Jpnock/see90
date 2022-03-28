@@ -24,6 +24,7 @@ func Parse(yylex yyLexer) int {
   typ *ASTType
   assignmentOperator ASTAssignmentOperator
   unaryOperator ASTExprPrefixUnaryType
+  pointerDepth int
 }
 
 %token IDENTIFIER CONSTANT STRING_LITERAL SIZEOF
@@ -268,8 +269,17 @@ init_declarator_list
 	;
 
 init_declarator
-	: declarator { $$.n = &ASTDecl{decl: $1.n.(*ASTDirectDeclarator)} }
-	| declarator '=' initializer { $$.n = &ASTDecl{decl: $1.n.(*ASTDirectDeclarator), initVal: $3.n} }
+	: declarator { 
+		$$.n = &ASTDecl{
+			decl: $1.n.(*ASTDirectDeclarator),
+		} 
+	}
+	| declarator '=' initializer { 
+		$$.n = &ASTDecl{
+			decl: $1.n.(*ASTDirectDeclarator),
+			initVal: $3.n,
+		} 
+	}
 	;
 
 storage_class_specifier
@@ -412,7 +422,7 @@ type_qualifier
 
 declarator
 	: pointer direct_declarator {
-		$2.n.(*ASTDirectDeclarator).isPointer = true
+		$2.n.(*ASTDirectDeclarator).pointerDepth = $1.pointerDepth
 		$$.n = $2.n
 	}
 	| direct_declarator { $$.n = $1.n }
@@ -427,8 +437,18 @@ direct_declarator
 		}
 	}
 	| '(' declarator ')'
-	| direct_declarator '[' constant_expression ']'
-	| direct_declarator '[' ']'
+	| direct_declarator '[' constant_expression ']' {
+		$$.n = &ASTDirectDeclarator{
+			decl: $1.n.(*ASTDirectDeclarator),
+			array: NewASTArray($3.n),
+		}
+	}
+	| direct_declarator '[' ']' {
+		$$.n = &ASTDirectDeclarator{
+			decl: $1.n.(*ASTDirectDeclarator),
+			array: NewASTArray(nil),
+		}
+	}
 	| direct_declarator '(' parameter_type_list ')' {
 		// Function declaration with arguments
 		$$.n = &ASTDirectDeclarator{
@@ -449,9 +469,9 @@ direct_declarator
 	;
 
 pointer
-	: '*'
+	: '*' {$$.pointerDepth = 1}
 	| '*' type_qualifier_list
-	| '*' pointer
+	| '*' pointer {$$.pointerDepth = 1 + $2.pointerDepth}
 	| '*' type_qualifier_list pointer
 	;
 
@@ -532,17 +552,15 @@ direct_abstract_declarator
 
 initializer
 	: assignment_expression {$$.n = $1.n}
-	// TODO: for structs
-	| '{' initializer_list '}' {$$.n = $2.n}
-	// TODO: for structs
-	| '{' initializer_list ',' '}' {$$.n = $2.n}
+	| '{' initializer_list '}' { $$.n = $2.n }
+	| '{' initializer_list ',' '}' { $$.n = $2.n }
 	;
 
 initializer_list
-	: initializer {$$.n = ASTStructInitilizerList{$1.n.(*ASTAssignment)}}
+	: initializer { $$.n = ASTInitializerList{$1.n} }
 	| initializer_list ',' initializer {
-		li := $1.n.(ASTStructInitilizerList)
-		li = append(li, $3.n.(*ASTAssignment))
+		li := $1.n.(ASTInitializerList)
+		li = append(li, $3.n)
 		$$.n = li
 	}
 	;

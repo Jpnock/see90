@@ -188,6 +188,7 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 		return
 	}
 
+	write(w, "%s:", string(m.CreateUniqueLabel("identgen")))
 	currentlyInGlobalScope := len(m.VariableScopes) == 1
 	if currentlyInGlobalScope {
 		return
@@ -202,6 +203,9 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 	if variable.isGlobal {
 		globalLabel = variable.GlobalLabel()
 
+		if variable.typ.typ == VarTypeString {
+			globalLabel = *variable.label
+		}
 		// Load the address of the global into $v1
 		write(w, "lui $v1, %%hi(%s)", globalLabel)
 		write(w, "addiu $v1, $v1, %%lo(%s)", globalLabel)
@@ -210,9 +214,30 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 		write(w, "addiu $v1, $fp, %d", -variable.fpOffset)
 	}
 
-	m.LastType = variable.typ.typ
+	m.SetLastType(variable.typ.typ)
+	if variable.directDecl != nil {
+		m.pointerLevel = variable.directDecl.pointerDepth
+	}
 
-	switch m.LastType {
+	if variable.IsArray() {
+		if variable.isGlobal {
+			write(w, "lui $v0, %%hi(%s)", globalLabel)
+			write(w, "addiu $v0, $v0, %%lo(%s)", globalLabel)
+			return
+		}
+		write(w, "addiu $v0, $fp, %d", -variable.fpOffset)
+
+		if variable.isLocalDataString {
+			// TODO: make this better
+			// array is in .data section, so we need to dereference.
+			write(w, "lw $v0, 0($v0)")
+			write(w, "lw $v1, 0($v1)")
+		}
+		// Arrays have the same value as their address
+		return
+	}
+
+	switch m.LastType() {
 	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeStruct:
 		if variable.isGlobal {
 			write(w, "lw $v0, 0($v1)")
@@ -280,10 +305,11 @@ func storeToReturnRegister(w io.Writer, typ VarType) {
 	case VarTypeDouble:
 		write(w, "swc1 $f0, 4($v1)")
 		write(w, "swc1 $f1, 0($v1)")
+	case VarTypeChar:
+		write(w, "sb $v0, 0($v1)")
 	default:
 		write(w, "sw $v0, 0($v1)")
 	}
-	return
 }
 
 // TODO: investigate at later date
@@ -291,11 +317,11 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Load value into $v0/$f0
 	t.value.GenerateMIPS(w, m)
 
-	if t.tmpAssign || m.LastType == VarTypeString {
+	if t.tmpAssign || m.LastType() == VarTypeString {
 		return
 	}
 
-	rhsType := m.LastType
+	rhsType := m.LastType()
 
 	// TODO: switch on type
 	switch rhsType {
@@ -315,11 +341,11 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	if t.operator == ASTAssignmentOperatorEquals {
 		// Special case as this does not require a load
-		storeToReturnRegister(w, m.LastType)
+		storeToReturnRegister(w, m.LastType())
 		return
 	}
 
-	switch m.LastType {
+	switch m.LastType() {
 	case VarTypeFloat:
 		write(w, "lwc1 $f2, 0($v1)")
 	case VarTypeDouble:
@@ -391,7 +417,7 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 		panic("unhanlded ASTAssignmentOperator")
 	}
 
-	storeToReturnRegister(w, m.LastType)
+	storeToReturnRegister(w, m.LastType())
 }
 
 type ASTArgumentExpressionList []*ASTAssignment
@@ -413,6 +439,27 @@ func (t ASTArgumentExpressionList) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 }
 
+type ASTInitializerList []Node
+
+func (t ASTInitializerList) Describe(indent int) string {
+	var sb strings.Builder
+	sb.WriteString("{")
+	for i, decl := range t {
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(decl.Describe(indent))
+	}
+	sb.WriteString("}")
+	return sb.String()
+}
+
+func (t ASTInitializerList) GenerateMIPS(w io.Writer, m *MIPS) {
+	// for _, decl := range t {
+	// 	decl.GenerateMIPS(w, m)
+	// }
+}
+
 type ASTDecl struct {
 	decl    *ASTDirectDeclarator
 	typ     *ASTType
@@ -428,14 +475,274 @@ func (t *ASTDecl) Describe(indent int) string {
 		return fmt.Sprintf("%s;", t.typ.Describe(indent))
 	}
 
-	if t.typ.typ == VarTypeStruct && t.initVal != nil {
-		return fmt.Sprintf("%s%s = { %s } : struct %s", genIndent(indent), t.decl.Describe(0), t.initVal.Describe(0), t.typ.typName)
+	pointers := ""
+	if t.decl != nil && t.decl.pointerDepth > 0 {
+		pointers = strings.Repeat("*", t.decl.pointerDepth)
 	}
 
 	if t.initVal == nil {
-		return fmt.Sprintf("%s%s : %s", genIndent(indent), t.decl.Describe(0), t.typ.Describe(0))
+		return fmt.Sprintf("%s%s : %s%s", genIndent(indent), t.decl.Describe(0), pointers, t.typ.Describe(0))
 	} else {
-		return fmt.Sprintf("%s%s = %s : %s", genIndent(indent), t.decl.Describe(0), t.initVal.Describe(0), t.typ.Describe(0))
+		if t.typ != nil && t.typ.typ == VarTypeStruct {
+			return fmt.Sprintf("%s%s = { %s } : struct %s%s", genIndent(indent), t.decl.Describe(0), t.initVal.Describe(0), pointers, t.typ.Describe(0))
+		}
+		return fmt.Sprintf("%s%s = %s : %s%s", genIndent(indent), t.decl.Describe(0), t.initVal.Describe(0), pointers, t.typ.Describe(0))
+	}
+}
+
+func (t *ASTDecl) isPointer() bool {
+	return t.decl.pointerDepth > 0
+}
+
+func (t *ASTDecl) isArray() bool {
+	return t.decl.array != nil
+}
+
+func (t *ASTDecl) getArrayInfo(m *MIPS) (dimensions []int, totalElements int, sizeOf int) {
+	// Work out how many bytes to reserve
+	dims := t.decl.ArrayDimensions()
+
+	totalElements = 1
+	if len(dims) == 0 {
+		totalElements = 0
+	}
+	for _, dim := range dims {
+		totalElements *= dim
+	}
+
+	sizeOfElement := m.sizeOfType(t.typ.typ, t.isPointer())
+	reserveArrayBytes := sizeOfElement * totalElements
+	return dims, totalElements, reserveArrayBytes
+}
+
+func (t *ASTDecl) generateLocalVarMIPSStruct(w io.Writer, m *MIPS, ident *ASTIdentifier, declVar *Variable) {
+	structType := *m.StructScopes[len(m.StructScopes)-1][t.typ.typName]
+	m.Context.GetNewLocalOffsetWithMinSize(structType.totalOffsetSize)
+
+	// TODO: is this fine if we're here from an initializer list containing a struct?
+	declVar.structure = &structType
+
+	var numOfInitilizers int
+	if t.initVal != nil {
+		numOfInitilizers = len(t.initVal.(ASTInitializerList))
+		for i, element := range t.initVal.(ASTInitializerList) {
+			// TODO: handle nested init list
+
+			element.GenerateMIPS(w, m)
+
+			// TODO: handle pointer/array types
+			switch structType.types[i].typ {
+			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+				write(w, "sw $v0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
+			case VarTypeChar:
+				write(w, "sb $v0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
+			case VarTypeFloat:
+				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
+			case VarTypeDouble:
+				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[i]+4)
+				write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset+structType.offsets[i])
+			default:
+				panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+			}
+		}
+	} else {
+		numOfInitilizers = 0
+	}
+
+	numOfElements := len(structType.elementIdents)
+	if numOfElements > numOfInitilizers {
+		for i := 0; i < (numOfInitilizers - numOfElements); i++ {
+			// TODO: handle pointer/array types
+			switch structType.types[numOfInitilizers+i].typ {
+			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+				write(w, "addiu $v0, $v0, 0")
+				write(w, "sw $v0, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i])
+			case VarTypeChar:
+				write(w, "addiu $v0, $v0, 0")
+				write(w, "sb $v0, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i])
+			case VarTypeFloat:
+				write(w, "li.s $f0, 0")
+				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i])
+			case VarTypeDouble:
+				write(w, "li.d $f0, 0")
+				write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i]+4)
+				write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i])
+			default:
+				panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+			}
+		}
+	}
+	return
+}
+
+func (t *ASTDecl) generateLocalVarMIPS(w io.Writer, m *MIPS, ident *ASTIdentifier, declVar *Variable) {
+	isArray := t.decl.array != nil
+
+	if isArray {
+		_, _, reserveArrayBytes := t.getArrayInfo(m)
+		declVar.fpOffset = m.Context.GetNewLocalOffsetWithMinSize(reserveArrayBytes)
+	} else if t.typ.typ == VarTypeStruct {
+		t.generateLocalVarMIPSStruct(w, m, ident, declVar)
+		return
+	} else {
+		declVar.fpOffset = m.Context.GetNewLocalOffset()
+	}
+
+	if t.initVal == nil {
+		return
+	}
+
+	elements := []Node{t.initVal}
+	if initializerList, ok := t.initVal.(ASTInitializerList); isArray && ok {
+		// Generate array with initializer list RHS instead
+		elements = nil
+
+		_, numElements, _ := t.getArrayInfo(m)
+		for i, entry := range initializerList {
+			if i >= numElements {
+				// Not enough space in the array
+				break
+			}
+
+			if _, ok := entry.(ASTInitializerList); ok {
+				// TODO: handle nested entries
+				panic("entry is an init list which is not yet handled")
+			}
+
+			elements = append(elements, entry)
+		}
+	}
+
+	assignment, ok := t.initVal.(*ASTAssignment)
+	if ok {
+		if _, ok := assignment.value.(*ASTStringLiteral); ok {
+			declVar.isLocalDataString = true
+		}
+	}
+
+	for i, element := range elements {
+		// Value is in $v0/f0, so now we just need to store it
+		element.GenerateMIPS(w, m)
+
+		switchType := t.typ.typ
+		if m.LastType() == VarTypeString || (switchType == VarTypeChar && t.isPointer()) {
+			switchType = VarTypeString
+		}
+
+		if len(elements) == 1 && t.isArray() && switchType == VarTypeChar {
+			switchType = VarTypeUnsigned
+		}
+
+		switch switchType {
+		case VarTypeChar:
+			write(w, "sb $v0, %d($fp)", -declVar.fpOffset+i)
+		case VarTypeFloat:
+			write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+(i*4))
+		case VarTypeDouble:
+			write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+4+(i*4))
+			write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset+(i*4))
+		case VarTypeString:
+			if isArray {
+				strBytes := m.stringMap[m.lastLabel]
+				_, _, reserveArrayBytes := t.getArrayInfo(m)
+				for i := 0; i < reserveArrayBytes; i++ {
+					if i < len(strBytes) {
+						write(w, "li $t0, %d", strBytes[i])
+						write(w, "sb $t0, %d($fp)", -declVar.fpOffset+i)
+					} else {
+						// Null terminated. If no initialiser is provided
+						// then maybe we shouldn't be doing this?
+						write(w, "sb $zero, %d($fp)", -declVar.fpOffset+i)
+					}
+				}
+			} else {
+				// Generate later in the .data section
+				declVar.label = &m.lastLabel
+				declVar.typ = ASTType{typ: VarTypeString, typName: ""}
+				m.VariableScopes[len(m.VariableScopes)-1][ident.ident] = declVar
+				write(w, "sw $v0, %d($fp)", -declVar.fpOffset+(i*4))
+			}
+		default:
+			write(w, "sw $v0, %d($fp)", -declVar.fpOffset+(i*4))
+		}
+	}
+}
+
+func (t *ASTDecl) generateGlobalVarMIPS(w io.Writer, m *MIPS, ident *ASTIdentifier, declVar *Variable) {
+	write(w, ".data")
+	defer write(w, ".text")
+	write(w, "%s:", declVar.GlobalLabel())
+
+	isArray := t.isArray()
+
+	if t.initVal == nil {
+		// Reserve space at the label, even if there is no initial value.
+		if isArray {
+			_, _, reserveArrayBytes := t.getArrayInfo(m)
+			for i := 0; i < reserveArrayBytes; i++ {
+				write(w, "    .byte 0")
+			}
+			return
+		}
+		switch t.typ.typ {
+		case VarTypeChar:
+			write(w, "  .byte 0")
+		case VarTypeDouble:
+			write(w, "  .word 0")
+			write(w, "  .word 0")
+		default:
+			write(w, "  .word 0")
+		}
+		return
+	}
+
+	elements := []Node{t.initVal}
+	if initializerList, ok := t.initVal.(ASTInitializerList); isArray && ok {
+		// No longer generate t.initVal
+		elements = nil
+
+		_, totalElements, _ := t.getArrayInfo(m)
+		for i, entry := range initializerList {
+			if i >= totalElements {
+				// Not enough space in the array
+				break
+			}
+
+			if _, ok := entry.(ASTInitializerList); ok {
+				// TODO: handle nested entries
+				panic("entry is an init list which is not yet handled")
+			}
+
+			elements = append(elements, entry)
+		}
+	}
+
+	// Global initializers have to be constants
+	for _, element := range elements {
+		fmt.Fprintf(os.Stderr, "Got type %T\n", element)
+		assignmentExpr := element.(*ASTAssignment)
+		if _, ok := assignmentExpr.value.(*ASTStringLiteral); ok {
+			// TODO: handle this better (for char * array as there will be
+			// multiple strings to set labels for)
+			declVar.label = &m.lastLabel
+			declVar.typ = ASTType{typ: VarTypeString, typName: ""}
+			element.GenerateMIPS(w, m)
+			continue
+		}
+
+		val := EvaluateConstExpr(element)
+		switch t.typ.typ {
+		case VarTypeChar:
+			emitGlobalChar(w, uint8(val))
+		case VarTypeDouble:
+			emitGlobalDouble(w, val)
+		case VarTypeFloat:
+			emitGlobalFloat(w, float32(val))
+		case VarTypeUnsigned:
+			emitGlobalUint32(w, uint32(val))
+		default:
+			emitGlobalInt32(w, int32(val))
+		}
 	}
 }
 
@@ -445,142 +752,38 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 		t.typ.GenerateMIPS(w, m)
 		return
 	}
-	isGlobal := len(m.VariableScopes) == 1
 
-	if t.typ.typ == VarTypeStruct {
-		structType := *m.StructScopes[len(m.StructScopes)-1][t.typ.typName]
-		m.Context.CurrentStackFramePointerOffset += structType.totalOffsetSize
-		declVar := &Variable{
-			fpOffset:  m.Context.CurrentStackFramePointerOffset,
-			decl:      t,
-			typ:       *t.typ,
-			label:     nil,
-			structure: &structType,
-			isGlobal:  isGlobal,
-		}
-		m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
-
-		var numOfInitilizers int
-		if t.initVal != nil {
-			numOfInitilizers = len(t.initVal.(ASTStructInitilizerList))
-			for i, assignment := range t.initVal.(ASTStructInitilizerList) {
-				assignment.value.GenerateMIPS(w, m)
-
-				switch structType.types[i].typ {
-				case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
-					write(w, "sw $v0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
-				case VarTypeChar:
-					write(w, "sb $v0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
-				case VarTypeFloat:
-					write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
-				case VarTypeDouble:
-					write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[i]+4)
-					write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset+structType.offsets[i])
-				default:
-					panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
-				}
-			}
-		} else {
-			numOfInitilizers = 0
-		}
-
-		numOfElements := len(structType.elementIdents)
-		if numOfElements > numOfInitilizers {
-			for i := 0; i < (numOfInitilizers - numOfElements); i++ {
-				switch structType.types[numOfInitilizers+i].typ {
-				case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
-					write(w, "addiu $v0, $v0, 0")
-					write(w, "sw $v0, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i])
-				case VarTypeChar:
-					write(w, "addiu $v0, $v0, 0")
-					write(w, "sb $v0, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i])
-				case VarTypeFloat:
-					write(w, "li.s $f0, 0")
-					write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i])
-				case VarTypeDouble:
-					write(w, "li.d $f0, 0")
-					write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i]+4)
-					write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i])
-				default:
-					panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
-				}
-			}
-		}
+	if t.decl == nil {
 		return
 	}
 
-	if t.decl == nil || t.decl.identifier == nil {
+	ident := t.decl.Identifier()
+	if ident == nil {
 		// TODO: handle this case (mostly caused by function prototypes).
 		return
 	}
 
+	isGlobal := len(m.VariableScopes) == 1
 	declVar := &Variable{
-		decl:     t,
-		typ:      *t.typ,
-		label:    nil,
-		isGlobal: isGlobal,
+		decl:       t,
+		directDecl: t.decl,
+		typ:        *t.typ,
+		label:      nil,
+		isGlobal:   isGlobal,
 	}
 
-	var globalLabel Label
-	if !isGlobal {
-		declVar.fpOffset = m.Context.GetNewLocalOffset()
-	} else {
-		globalLabel = declVar.GlobalLabel()
-	}
-
-	m.LastType = t.typ.typ
-	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
+	m.SetLastType(t.typ.typ)
+	m.VariableScopes[len(m.VariableScopes)-1][ident.ident] = declVar
 
 	if isGlobal {
-		// Global variable
-		write(w, ".data")
-		defer write(w, ".text")
-		write(w, "%s:", globalLabel)
-		if t.initVal == nil {
-			switch t.typ.typ {
-			case VarTypeChar:
-				write(w, "  .byte 0")
-			case VarTypeDouble:
-				write(w, "  .word 0")
-				write(w, "  .word 0")
-			default:
-				write(w, "  .word 0")
-			}
-			return
-		}
-		t.initVal.GenerateMIPS(w, m)
+		t.generateGlobalVarMIPS(w, m, ident, declVar)
+		m.pointerLevel = t.decl.pointerDepth
 		return
 	}
 
-	// Local variable
-	if t.initVal == nil {
-		return
-	}
-
-	t.initVal.GenerateMIPS(w, m)
-
-	if m.LastType == VarTypeString {
-		declVar.label = &m.lastLabel
-		declVar.typ = ASTType{typ: VarTypeString, typName: ""}
-		m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
-		return
-	}
-
-	switch t.typ.typ {
-	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
-		write(w, "sw $v0, %d($fp)", -declVar.fpOffset)
-	case VarTypeChar:
-		write(w, "sb $v0, %d($fp)", -declVar.fpOffset)
-	case VarTypeFloat:
-		write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset)
-	case VarTypeDouble:
-		write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+4)
-		write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset)
-	default:
-		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
-	}
-
-	m.VariableScopes[len(m.VariableScopes)-1][t.decl.identifier.ident] = declVar
+	m.pointerLevel = t.decl.pointerDepth
+	t.generateLocalVarMIPS(w, m, ident, declVar)
+	m.pointerLevel = t.decl.pointerDepth
 }
 
 type ASTConstant struct {
@@ -598,6 +801,28 @@ func (t *ASTConstant) Describe(indent int) string {
 	return fmt.Sprintf("%s%s", genIndent(indent), t.value)
 }
 
+func emitGlobalFloat(w io.Writer, val float32) {
+	write(w, "  .word %d", math.Float32bits(val))
+}
+
+func emitGlobalDouble(w io.Writer, val float64) {
+	bits := math.Float64bits(val)
+	write(w, "  .word %d", bits>>32)
+	write(w, "  .word %d", bits&0xFFFFFFFF)
+}
+
+func emitGlobalInt32(w io.Writer, val int32) {
+	write(w, "  .word %d", val)
+}
+
+func emitGlobalUint32(w io.Writer, val uint32) {
+	write(w, "  .word %d", val)
+}
+
+func emitGlobalChar(w io.Writer, val uint8) {
+	write(w, ".byte %d", val)
+}
+
 // TODO: investigate at later date
 func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 	if len(t.value) == 0 {
@@ -610,16 +835,21 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	// TODO: currently doesnt detect chars declard with an int not a char literal
 	if t.value[0] == '\'' {
+		if t.value == `'\0'` {
+			// Handle special case as this is different
+			// in Go to C.
+			t.value = `'\000'`
+		}
 		unquotedString, err := strconv.Unquote(t.value)
 		if err != nil {
 			panic(fmt.Errorf("character literal unquote gave error: %v", err))
 		}
 		if isGlobal {
-			write(w, ".byte %d", int(unquotedString[0]))
+			emitGlobalChar(w, uint8(unquotedString[0]))
 		} else {
 			write(w, "li $v0, %d", unquotedString[0])
 		}
-		m.LastType = VarTypeChar
+		m.SetLastType(VarTypeChar)
 		return
 	}
 
@@ -635,11 +865,11 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 			panic("invalid floating point constant")
 		}
 		if isGlobal {
-			write(w, "  .word %d", math.Float32bits(float32(f32)))
+			emitGlobalFloat(w, float32(f32))
 		} else {
 			write(w, "li.s $f0, %f", float32(f32))
 		}
-		m.LastType = VarTypeFloat
+		m.SetLastType(VarTypeFloat)
 		return
 	}
 
@@ -651,7 +881,7 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 			panic("unable to convert unsinged to int")
 		}
 		if isGlobal {
-			write(w, "  .word %d", uintValue)
+			emitGlobalUint32(w, uint32(uintValue))
 		} else {
 			write(w, "li $v0, %d", uintValue)
 		}
@@ -665,17 +895,17 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 		// can be performed on this type; it will also be overwritten by
 		// ASTDecl/ASTIdentifier etc.)
 		if isGlobal {
-			if m.LastType != VarTypeDouble {
+			if m.LastType() != VarTypeDouble {
 				emittedGlobalInt = true
-				write(w, "  .word %d", intValue)
+				emitGlobalInt32(w, int32(intValue))
 			}
 		} else {
 			write(w, "li $v0, %d", intValue)
 		}
-		m.LastType = VarTypeInteger
+		m.SetLastType(VarTypeInteger)
 	} else {
 		// Not an int
-		m.LastType = VarTypeDouble
+		m.SetLastType(VarTypeDouble)
 	}
 
 	f64, err := strconv.ParseFloat(t.value, 64)
@@ -684,9 +914,7 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 	if isGlobal {
 		if !emittedGlobalInt {
-			bits := math.Float64bits(f64)
-			write(w, "  .word %d", bits>>32)
-			write(w, "  .word %d", bits&0xFFFFFFFF)
+			emitGlobalDouble(w, f64)
 		}
 		return
 	}
@@ -706,32 +934,27 @@ func (t *ASTStringLiteral) Describe(indent int) string {
 
 // TODO: investigate at later date
 func (t *ASTStringLiteral) GenerateMIPS(w io.Writer, m *MIPS) {
-
 	//Get slice of escaped runes
 	unquotedString, err := strconv.Unquote(t.value)
 	if err != nil {
 		panic(fmt.Errorf("string Literal unquote gave error: %v", err))
 	}
 
-	var sb strings.Builder
-	sb.WriteString("\"")
-	//for each rune convert them into hex and add \x before hand then add that to the string
-	for _, r := range unquotedString {
-		sb.WriteString(
-			fmt.Sprintf("\\x%02x", r),
-		)
-	}
-	sb.WriteString("\\000\"")
-
 	stringlabel := m.CreateUniqueLabel("string")
 
 	m.lastLabel = stringlabel
-	m.stringMap[stringlabel] = sb.String()
+	m.stringMap[stringlabel] = []byte(unquotedString)
 
-	write(w, "lui $v0, %%hi(%s)", stringlabel)
-	write(w, "addiu $v0, $v0, %%lo(%s)", stringlabel)
+	isGlobal := len(m.VariableScopes) == 1
+	if isGlobal {
+		writeGlobalString(w, stringlabel, []byte(unquotedString))
+	} else {
+		write(w, "lui $v0, %%hi(%s_data)", stringlabel)
+		write(w, "addiu $v0, $v0, %%lo(%s_data)", stringlabel)
+	}
 
-	m.LastType = VarTypeString
+	m.SetLastType(VarTypeChar)
+	m.pointerLevel = 1
 }
 
 type ASTPanic struct{}
@@ -764,6 +987,10 @@ func (t *ASTType) Describe(indent int) string {
 		return t.structure.Describe(indent)
 	}
 
+	if t.typ == VarTypeStruct {
+		return string(t.typName)
+	}
+
 	return string(t.typ)
 }
 
@@ -771,7 +998,7 @@ func (t *ASTType) Describe(indent int) string {
 func (t *ASTType) GenerateMIPS(w io.Writer, m *MIPS) {
 	switch t.typ {
 	case VarTypeEnum:
-		m.LastType = VarTypeUnsigned
+		m.SetLastType(VarTypeUnsigned)
 		// TODO: we might have some problems with struct parameters?
 		t.enum.GenerateMIPS(w, m)
 	case VarTypeStruct:
@@ -779,7 +1006,7 @@ func (t *ASTType) GenerateMIPS(w io.Writer, m *MIPS) {
 		// TODO: we might have some problems with struct parameters?
 		t.structure.GenerateMIPS(w, m)
 	default:
-		m.LastType = t.typ
+		m.SetLastType(t.typ)
 	}
 }
 
@@ -830,11 +1057,35 @@ type ASTDirectDeclarator struct {
 	identifier *ASTIdentifier
 	decl       *ASTDirectDeclarator
 
-	isPointer bool
+	pointerDepth int
 
 	// parameters is nil if it's not a function, else
 	// it has zero or more parameters.
 	parameters *ASTParameterList
+
+	// Nil if the direct decl is not an array
+	array *ASTArray
+}
+
+func (t ASTDirectDeclarator) ArrayDimensions() []int {
+	if t.array == nil {
+		return nil
+	}
+
+	dimensions := t.decl.ArrayDimensions()
+	dimensions = append(dimensions, t.array.size)
+	return dimensions
+}
+
+func (t ASTDirectDeclarator) Identifier() *ASTIdentifier {
+	root := &t
+	for root != nil {
+		if root.identifier != nil {
+			return root.identifier
+		}
+		root = root.decl
+	}
+	return nil
 }
 
 func (t ASTDirectDeclarator) Describe(indent int) string {
@@ -842,11 +1093,20 @@ func (t ASTDirectDeclarator) Describe(indent int) string {
 
 	if t.decl != nil {
 		sb.WriteString(t.decl.Describe(0))
+		if t.array != nil {
+			sb.WriteString("[")
+			sb.WriteString(fmt.Sprintf("%d", t.array.size))
+			sb.WriteString("]")
+		}
 		if t.parameters != nil {
 			sb.WriteString("(")
 			sb.WriteString(t.parameters.Describe(0))
 			sb.WriteString(")")
 		}
+	} else if t.array != nil {
+		sb.WriteString("[")
+		sb.WriteString(fmt.Sprintf("%d", t.array.size))
+		sb.WriteString("]")
 	} else {
 		sb.WriteString(t.identifier.Describe(0))
 	}
@@ -1132,9 +1392,25 @@ func (t ASTStructElement) GenerateMIPS(w io.Writer, m *MIPS) {
 	default:
 		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 	}
-	m.LastType = structVar.structure.types[elementIndent].typ
+	m.SetLastType(structVar.structure.types[elementIndent].typ)
 }
 
 func genIndent(indent int) string {
 	return strings.Repeat(" ", indent)
+}
+
+func writeGlobalString(w io.Writer, label Label, value []byte) {
+	var sb strings.Builder
+	sb.WriteString("\"")
+	//for each rune convert them into hex and add \x before hand then add that to the string
+	for _, r := range value {
+		sb.WriteString(
+			fmt.Sprintf("\\x%02x", r),
+		)
+	}
+	sb.WriteString("\\000\"")
+	write(w, "%s_data:", label)
+	write(w, ".asciz %s", sb.String())
+	write(w, "%s:", label)
+	write(w, ".word %s_data", label)
 }

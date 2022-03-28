@@ -54,6 +54,9 @@ func stackPushFP(w io.Writer, registers ...string) {
 		panic("bad stackPushFP")
 	}
 
+	write(w, "")
+	defer write(w, "")
+
 	if len(registers) == 2 {
 		write(w, "addiu $sp, $sp, -8")
 		write(w, "swc1 %s, 4($sp)", registers[0])
@@ -70,6 +73,9 @@ func stackPopFP(w io.Writer, registers ...string) {
 		panic("bad stackPopFP")
 	}
 
+	write(w, "")
+	defer write(w, "")
+
 	if len(registers) == 2 {
 		write(w, "lwc1 %s, 4($sp)", registers[0])
 		write(w, "lwc1 %s, 0($sp)", registers[1])
@@ -82,6 +88,9 @@ func stackPopFP(w io.Writer, registers ...string) {
 }
 
 func stackPush(w io.Writer, reg string, size int) {
+	write(w, "")
+	defer write(w, "")
+
 	write(w, "addiu $sp, $sp, -8")
 	if reg != "" {
 		// TODO: alter sw based on reg type
@@ -98,6 +107,9 @@ func stackPush(w io.Writer, reg string, size int) {
 }
 
 func stackPop(w io.Writer, reg string, size int) {
+	write(w, "")
+	defer write(w, "")
+
 	if reg != "" {
 		// TODO: alter lw based on reg type
 		switch size {
@@ -173,7 +185,7 @@ func (t *ASTExprBinary) generateLogical(w io.Writer, m *MIPS) {
 	write(w, "%s:", successLabel)
 	write(w, "addiu $v0, $zero, 1")
 	write(w, "%s:", endLabel)
-	m.LastType = VarTypeInteger
+	m.SetLastType(VarTypeInteger)
 }
 
 func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
@@ -186,10 +198,15 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 		return
 	}
 
+	var lhsType VarType
+	var lhsPointerLevel int
+
 	// Generate LHS -> result in $v0
 	t.lhs.GenerateMIPS(w, m)
+	lhsType = m.lastType
+	lhsPointerLevel = m.pointerLevel
 
-	var varTyp = m.LastType
+	var varTyp = m.LastType()
 
 	switch varTyp {
 	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeString:
@@ -233,6 +250,50 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 		stackPop(w, "$t0", 2)
 	default:
 		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+	}
+
+	emitPointerArithmetic := func(offsetRegister string) {
+		offset := 4
+		switch m.lastType {
+		case VarTypeChar, VarTypeString:
+			offset = 1
+		case VarTypeDouble:
+			offset = 8
+		}
+
+		write(w, "move $t3, %s", offsetRegister)
+		for i := 1; i < offset; i++ {
+			write(w, "addu %s, %s, $t3", offsetRegister, offsetRegister)
+		}
+	}
+
+	if lhsPointerLevel > 0 && m.pointerLevel > 0 {
+		// Pointers on both sides, so we need to divide both sides by the
+		// pointer size as subtraction is the only operation allowed here.
+		nonPtrSize := 4
+		switch m.lastType {
+		case VarTypeChar, VarTypeString:
+			nonPtrSize = 1
+		case VarTypeDouble:
+			nonPtrSize = 8
+		}
+
+		if nonPtrSize != 1 {
+			write(w, "addiu $t3, $zero, %d", nonPtrSize)
+			write(w, "divu $t0, $t3")
+			write(w, "mflo $t0")
+			write(w, "divu $t1, $t3")
+			write(w, "mflo $t1")
+		}
+	} else if lhsPointerLevel > 0 {
+		// This allows for pointer arithmetic, as otherwise the RHS might contain a constant
+		// which overwrites the current pointer information within the context.
+		m.lastType = lhsType
+		m.pointerLevel = lhsPointerLevel
+		emitPointerArithmetic("$t1")
+	} else if m.pointerLevel > 0 {
+		// RHS has a pointer instead, with LHS constant
+		emitPointerArithmetic("$t0")
 	}
 
 	switch t.typ {
@@ -346,7 +407,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 			// Invert the condition (greater than 0) => not equal
 			write(w, "xori $v0, $v0, 1")
 		}
-		m.LastType = VarTypeInteger
+		m.SetLastType(VarTypeInteger)
 
 	case ASTExprBinaryTypeGreaterThan, ASTExprBinaryTypeLessOrEqual:
 		switch varTyp {
@@ -367,7 +428,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 			// Invert the condition (greater than 0) => not equal
 			write(w, "xori $v0, $v0, 1")
 		}
-		m.LastType = VarTypeInteger
+		m.SetLastType(VarTypeInteger)
 
 	case ASTExprBinaryTypeEquality, ASTExprBinaryTypeNotEquality:
 		switch varTyp {
@@ -389,7 +450,7 @@ func (t *ASTExprBinary) GenerateMIPS(w io.Writer, m *MIPS) {
 			// Invert the condition (greater than 0) => not equal
 			write(w, "xori $v0, $v0, 1")
 		}
-		m.LastType = VarTypeInteger
+		m.SetLastType(VarTypeInteger)
 
 	case ASTExprBinaryTypeBitwiseAnd:
 		switch varTyp {
@@ -461,7 +522,7 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	// TODO: work out actual type
 	t.lvalue.GenerateMIPS(w, m)
 
-	var varTyp = m.LastType
+	var varTyp = m.LastType()
 
 	switch t.typ {
 	case ASTExprPrefixUnaryTypeIncrement:
@@ -521,7 +582,7 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 		default:
 			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
-		m.LastType = VarTypeInteger
+		m.SetLastType(VarTypeInteger)
 
 	case ASTExprPrefixUnaryTypeNegative:
 		switch varTyp {
@@ -548,43 +609,39 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 		}
 
 	case ASTExprPrefixUnaryTypeAddressOf:
+		m.pointerLevel += 1
 		write(w, "addu $v0, $zero, $v1")
 
 	case ASTExprPrefixUnaryTypeDereference:
-		write(w, "addu $v1, $v0, $zero")
-		// TODO: add info on levels of pointer dereferance you're at
-		if _, ok := t.lvalue.(*ASTIdentifier); ok {
-			switch varTyp {
-			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
-				write(w, "lw $v0, 0($v0)")
-			case VarTypeString, VarTypeChar:
-				write(w, "lb $v0, 0($v0)")
-			case VarTypeFloat:
-				write(w, "l.s $f0, 0($v0)")
-			case VarTypeDouble:
-				write(w, "l.d $f0, 0($v0)")
-			default:
-				panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
-			}
-		} else {
-			write(w, "lw $v0, 0($v0)")
+		if m.pointerLevel == 0 {
+			panic("can't deference non-pointer")
 		}
+
+		m.pointerLevel -= 1
+		write(w, "addu $v1, $v0, $zero")
+
+		switch m.LastType() {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+			write(w, "lw $v0, 0($v0)")
+		case VarTypeString, VarTypeChar:
+			write(w, "lb $v0, 0($v0)")
+		case VarTypeFloat:
+			write(w, "l.s $f0, 0($v0)")
+		case VarTypeDouble:
+			write(w, "l.d $f0, 0($v0)")
+		default:
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+		}
+
 	case ASTExprPrefixUnaryTypeSizeOf:
 		switch varTyp {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeFloat:
-			write(w, "li $v0, 4")
-		case VarTypeChar:
-			write(w, "li $v0, 1")
-		case VarTypeDouble:
-			write(w, "li $v0, 8")
 		case VarTypeStruct:
 			structVar := m.VariableScopes[len(m.VariableScopes)-1][t.lvalue.(*ASTBrackets).Node.(ASTExpression)[0].value.(*ASTIdentifier).ident]
 			write(w, "li $v0, %d", structVar.structure.structSize)
 		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+			write(w, "li $v0, %d", m.sizeOfType(varTyp, false))
 		}
-		m.LastType = VarTypeInteger
-
+		m.SetLastType(VarTypeInteger)
 	case ASTExprPrefixUnaryTypePositive:
 	default:
 		panic("unsupported ASTExprPrefixUnaryType")
@@ -615,7 +672,7 @@ func (t *ASTExprSuffixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	t.lvalue.GenerateMIPS(w, m)
 
-	var varTyp = m.LastType
+	var varTyp = m.LastType()
 	// TODO: handle global variables
 
 	switch t.typ {
@@ -699,18 +756,31 @@ func (t *ASTIndexedExpression) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Index now in $t0
 	stackPop(w, "$t0", 4)
 
-	// TODO: alter based on type (currently + 4x$t0 for int)
-	write(w, "addu $v0, $v0, $t0")
-	write(w, "addu $v0, $v0, $t0")
-	write(w, "addu $v0, $v0, $t0")
-	write(w, "addu $v0, $v0, $t0")
+	if m.pointerLevel > 0 {
+		// Handle pointer indexing
+		m.pointerLevel -= 1
+	}
+
+	// TODO: alter based on type
+	indexMultiplier := 4
+	switch m.LastType() {
+	case VarTypeDouble:
+		indexMultiplier = 8
+	case VarTypeChar, VarTypeString:
+		indexMultiplier = 1
+	}
+
+	for i := 0; i < indexMultiplier; i++ {
+		write(w, "addu $v0, $v0, $t0")
+		write(w, "addu $v1, $v1, $t0")
+	}
 
 	// TODO: change based on type
-	switch m.LastType {
-	case VarTypeString:
+	switch m.LastType() {
+	case VarTypeString, VarTypeChar:
 		write(w, "lb $v0, 0($v0)")
-		m.LastType = VarTypeChar
+		m.SetLastType(VarTypeChar)
 	default:
-		write(w, "lw $v0, 0($v0")
+		write(w, "lw $v0, 0($v0)")
 	}
 }
