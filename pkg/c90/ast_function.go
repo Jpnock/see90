@@ -223,6 +223,17 @@ func (t *ASTFunctionCall) GenerateMIPS(w io.Writer, m *MIPS) {
 	stackPush(w, "$ra", 4)
 	defer stackPop(w, "$ra", 4)
 
+	// Allow for function calls that contain function calls by preserving the
+	// existing state of the argument registers.
+	stackPush(w, "$4", 4)
+	defer stackPop(w, "$4", 4)
+	stackPush(w, "$5", 4)
+	defer stackPop(w, "$5", 4)
+	stackPush(w, "$6", 4)
+	defer stackPop(w, "$6", 4)
+	stackPush(w, "$7", 4)
+	defer stackPop(w, "$7", 4)
+
 	const regTypeFP = "fp"
 	const regTypeInt = "int"
 	firstRegisterType := regTypeInt
