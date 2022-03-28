@@ -144,3 +144,28 @@ func (s *StructScopeStack) Peek() StructScope {
 	}
 	return (*s)[len(*s)-1]
 }
+
+type TypeDefScope map[string]*ASTType
+
+type TypeDefScopeStack []TypeDefScope
+
+func (s *TypeDefScopeStack) Push(v TypeDefScope) {
+	*s = append(*s, v)
+}
+
+func (s *TypeDefScopeStack) Pop() TypeDefScope {
+	if len(*s) == 0 {
+		return nil
+	}
+
+	lastElem := (*s)[len(*s)-1]
+	*s = (*s)[:len(*s)-1]
+	return lastElem
+}
+
+func (s *TypeDefScopeStack) Peek() TypeDefScope {
+	if len(*s) == 0 {
+		return nil
+	}
+	return (*s)[len(*s)-1]
+}

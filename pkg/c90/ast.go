@@ -572,7 +572,6 @@ func (t *ASTDecl) generateLocalVarMIPSStruct(w io.Writer, m *MIPS, ident *ASTIde
 			}
 		}
 	}
-	return
 }
 
 func (t *ASTDecl) generateLocalVarMIPS(w io.Writer, m *MIPS, ident *ASTIdentifier, declVar *Variable) {
@@ -764,10 +763,15 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 
 	isGlobal := len(m.VariableScopes) == 1
+	vartype := t.typ
+	if t.typ.typ == VarTypeTypeName {
+		vartype = m.TypeDefScopes[len(m.TypeDefScopes)-1][t.typ.typName]
+		panic(ident.ident)
+	}
 	declVar := &Variable{
 		decl:       t,
 		directDecl: t.decl,
-		typ:        *t.typ,
+		typ:        *vartype,
 		label:      nil,
 		isGlobal:   isGlobal,
 	}
@@ -987,7 +991,7 @@ func (t *ASTType) Describe(indent int) string {
 		return t.structure.Describe(indent)
 	}
 
-	if t.typ == VarTypeStruct {
+	if t.typ == VarTypeStruct || t.typ == VarTypeTypeName {
 		return string(t.typName)
 	}
 
@@ -1144,6 +1148,7 @@ func (t *ASTScope) GenerateMIPS(w io.Writer, m *MIPS) {
 	}
 	m.NewVariableScope()
 	m.NewStructScope()
+	m.NewTypeDefScope()
 	t.body.GenerateMIPS(w, m)
 	m.VariableScopes.Pop()
 	m.StructScopes.Pop()
@@ -1394,6 +1399,21 @@ func (t ASTStructElement) GenerateMIPS(w io.Writer, m *MIPS) {
 		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 	}
 	m.SetLastType(structVar.structure.types[elementIndent].typ)
+}
+
+type ASTTypeDef struct {
+	typeName string
+	typ      *ASTType
+	decl     *ASTDirectDeclarator
+}
+
+func (t ASTTypeDef) Describe(indent int) string {
+	currentIndent := genIndent(indent)
+	return fmt.Sprintf("%stypedef %s : %s", currentIndent, t.typeName, t.typ.typ)
+}
+
+func (t ASTTypeDef) GenerateMIPS(w io.Writer, m *MIPS) {
+	m.TypeDefScopes[len(m.TypeDefScopes)-1][t.typeName] = t.typ
 }
 
 func genIndent(indent int) string {

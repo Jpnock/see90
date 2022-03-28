@@ -67,6 +67,7 @@ type MIPS struct {
 	CaseLabelScopes CaseLabelScopeStack
 	ReturnScopes    ReturnScopeStack
 	StructScopes    StructScopeStack
+	TypeDefScopes   TypeDefScopeStack
 	stringMap       map[Label][]byte
 	lastLabel       Label
 
@@ -84,6 +85,10 @@ func NewMIPS() *MIPS {
 		},
 		StructScopes: StructScopeStack{
 			StructScope{},
+		},
+		TypeDefScopes: TypeDefScopeStack{
+			// Global scope is always the first level
+			TypeDefScope{},
 		},
 		Context:           &MIPSContext{},
 		LabelScopes:       nil,
@@ -147,6 +152,16 @@ func (m *MIPS) NewStructScope() {
 	m.StructScopes.Push(newScope)
 }
 
+func (m *MIPS) NewTypeDefScope() {
+	// Create a new scope and copy the last scope into it
+	newScope := make(TypeDefScope)
+	top := m.TypeDefScopes.Peek()
+	for k, v := range top {
+		newScope[k] = v
+	}
+	m.TypeDefScopes.Push(newScope)
+}
+
 // NewLabelScope adds a new label scope to the stack and copies all of the
 // previous variables into it.
 func (m *MIPS) NewLabelScope(l LabelScope) {
@@ -162,6 +177,7 @@ func (m *MIPS) NewSwitchStatement() (bottomLabel Label) {
 	m.LabelScopes.Push(LabelScope{BreakLabel: &bottomLabel})
 	m.NewVariableScope()
 	m.NewStructScope()
+	m.NewTypeDefScope()
 	return
 }
 
@@ -183,6 +199,7 @@ func (m *MIPS) NewFunction() {
 
 	m.NewVariableScope()
 	m.NewStructScope()
+	m.NewTypeDefScope()
 	m.ReturnScopes.Push(m.CreateUniqueLabel("function_return"))
 }
 
