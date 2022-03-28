@@ -14,6 +14,7 @@ type Variable struct {
 	typ               ASTType
 	label             *Label
 	isGlobal          bool
+	isLocalDataString bool
 	enum              *ASTEnumEntry
 }
 
