@@ -110,3 +110,37 @@ func (s *ReturnScopeStack) Peek() *Label {
 	labelScope := (*s)[len(*s)-1]
 	return &labelScope
 }
+
+type Struct struct {
+	ident           string
+	structSize      int
+	totalOffsetSize int
+	offsets         map[int]int
+	types           map[int]ASTType
+	elementIdents   map[string]int
+}
+
+type StructScope map[string]*Struct
+
+type StructScopeStack []StructScope
+
+func (s *StructScopeStack) Push(v StructScope) {
+	*s = append(*s, v)
+}
+
+func (s *StructScopeStack) Pop() StructScope {
+	if len(*s) == 0 {
+		return nil
+	}
+
+	lastElem := (*s)[len(*s)-1]
+	*s = (*s)[:len(*s)-1]
+	return lastElem
+}
+
+func (s *StructScopeStack) Peek() StructScope {
+	if len(*s) == 0 {
+		return nil
+	}
+	return (*s)[len(*s)-1]
+}

@@ -16,6 +16,7 @@ type Variable struct {
 	isGlobal          bool
 	isLocalDataString bool
 	enum              *ASTEnumEntry
+	structure         *Struct
 }
 
 func (v *Variable) IsPointer() bool {
@@ -65,6 +66,7 @@ type MIPS struct {
 	LabelScopes     LabelScopeStack
 	CaseLabelScopes CaseLabelScopeStack
 	ReturnScopes    ReturnScopeStack
+	StructScopes    StructScopeStack
 	stringMap       map[Label][]byte
 	lastLabel       Label
 
@@ -79,6 +81,9 @@ func NewMIPS() *MIPS {
 		VariableScopes: VariableScopeStack{
 			// Global scope is always the first level
 			VariableScope{},
+		},
+		StructScopes: StructScopeStack{
+			StructScope{},
 		},
 		Context:           &MIPSContext{},
 		LabelScopes:       nil,
@@ -132,6 +137,16 @@ func (m *MIPS) NewVariableScope() {
 	m.VariableScopes.Push(newScope)
 }
 
+func (m *MIPS) NewStructScope() {
+	// Create a new scope and copy the last scope into it
+	newScope := make(StructScope)
+	top := m.StructScopes.Peek()
+	for k, v := range top {
+		newScope[k] = v
+	}
+	m.StructScopes.Push(newScope)
+}
+
 // NewLabelScope adds a new label scope to the stack and copies all of the
 // previous variables into it.
 func (m *MIPS) NewLabelScope(l LabelScope) {
@@ -146,6 +161,7 @@ func (m *MIPS) NewSwitchStatement() (bottomLabel Label) {
 	m.CaseLabelScopes.Push(CaseLabelScope{})
 	m.LabelScopes.Push(LabelScope{BreakLabel: &bottomLabel})
 	m.NewVariableScope()
+	m.NewStructScope()
 	return
 }
 
@@ -166,11 +182,13 @@ func (m *MIPS) NewFunction() {
 	m.stringMap = map[Label][]byte{}
 
 	m.NewVariableScope()
+	m.NewStructScope()
 	m.ReturnScopes.Push(m.CreateUniqueLabel("function_return"))
 }
 
 func (m *MIPS) EndFunction() {
 	m.VariableScopes.Pop()
+	m.StructScopes.Pop()
 	m.ReturnScopes.Pop()
 	m.stringMap = map[Label][]byte{}
 }

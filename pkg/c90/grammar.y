@@ -67,7 +67,7 @@ postfix_expression
 			arguments: $3.n.(ASTArgumentExpressionList),
 		}
 	}
-	| postfix_expression '.' IDENTIFIER
+	| postfix_expression '.' IDENTIFIER { $$.n = &ASTStructElement{structImp: $1.n.(*ASTIdentifier), ident: $3.str} }
 	| postfix_expression PTR_OP IDENTIFIER {}
 	| postfix_expression INC_OP {
 		$$.n = &ASTExprSuffixUnary{typ: ASTExprSuffixUnaryTypeIncrement, lvalue: $1.n}
@@ -229,7 +229,7 @@ constant_expression
 
 declaration
 	: declaration_specifiers ';' {
-		if $1.typ != nil && $1.typ.typ == VarTypeEnum {
+		if $1.typ != nil && $1.typ.typ == VarTypeEnum || $1.typ.typ == VarTypeStruct{
 			$$.n = ASTDeclaratorList{
 				&ASTDecl{
 					typ: $1.typ,
@@ -303,7 +303,9 @@ type_specifier
 	| DOUBLE { $$.typ = &ASTType{typ: VarTypeDouble} }
 	| SIGNED { $$.typ = &ASTType{typ: VarTypeSigned} }
 	| UNSIGNED { $$.typ = &ASTType{typ: VarTypeUnsigned} }
-	| struct_or_union_specifier
+	| struct_or_union_specifier { 
+		$$.typ = &ASTType{typ: VarTypeStruct, typName: $1.n.(*ASTStruct).ident.ident, structure: $1.n.(*ASTStruct)}
+	}
 	| enum_specifier { 
 		$$.typ = &ASTType{typ: VarTypeEnum, enum: $1.n.(*ASTEnum)}
 	}
@@ -311,23 +313,36 @@ type_specifier
 	;
 
 struct_or_union_specifier
-	: struct_or_union IDENTIFIER '{' struct_declaration_list '}'
+	: struct_or_union IDENTIFIER '{' struct_declaration_list '}' {
+		$$.n = &ASTStruct{ident: &ASTIdentifier{ident: $2.str}, elements: $4.n.(ASTStructDeclarationList)}
+	}
 	| struct_or_union '{' struct_declaration_list '}'
-	| struct_or_union IDENTIFIER
+	| struct_or_union IDENTIFIER {
+		$$.n = &ASTStruct{ident: &ASTIdentifier{ident: $2.str}}
+	}
 	;
 
 struct_or_union
-	: STRUCT
+	: STRUCT 
 	| UNION
 	;
 
-struct_declaration_list
-	: struct_declaration
-	| struct_declaration_list struct_declaration
+struct_declaration_list 
+	: struct_declaration { $$.n = ASTStructDeclarationList{$1.n.(ASTStructDeclaratorList)} }
+	| struct_declaration_list struct_declaration {
+		li := $1.n.(ASTStructDeclarationList)
+		li = append(li, $2.n.(ASTStructDeclaratorList))
+		$$.n = li
+	}
 	;
 
 struct_declaration
-	: specifier_qualifier_list struct_declarator_list ';'
+	: specifier_qualifier_list struct_declarator_list ';' {
+		for _, entry := range $2.n.(ASTStructDeclaratorList) {
+			entry.decl.typ = $1.typ
+		}
+		$$.n = $2.n
+	}
 	;
 
 specifier_qualifier_list
@@ -338,14 +353,18 @@ specifier_qualifier_list
 	;
 
 struct_declarator_list
-	: struct_declarator
-	| struct_declarator_list ',' struct_declarator
+	: struct_declarator { $$.n = ASTStructDeclaratorList{$1.n.(ASTStructDeclarator)} }
+	| struct_declarator_list ',' struct_declarator {
+		li := $1.n.(ASTStructDeclaratorList)
+		li = append(li, $3.n.(ASTStructDeclarator))
+		$$.n = li
+	}
 	;
 
 struct_declarator
-	: declarator
-	| ':' constant_expression
-	| declarator ':' constant_expression
+	: declarator {$$.n = ASTStructDeclarator{decl: &ASTDecl{decl: $1.n.(*ASTDirectDeclarator)}}}
+	| ':' constant_expression //bit-feild
+	| declarator ':' constant_expression //bit-feild
 	;
 
 enum_specifier

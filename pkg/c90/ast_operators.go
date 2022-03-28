@@ -634,10 +634,14 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 		}
 
 	case ASTExprPrefixUnaryTypeSizeOf:
-		// TODO: fix pointer behaviour
-		write(w, "li $v0, %d", m.sizeOfType(varTyp, false))
+		switch varTyp {
+		case VarTypeStruct:
+			structVar := m.VariableScopes[len(m.VariableScopes)-1][t.lvalue.(*ASTBrackets).Node.(ASTExpression)[0].value.(*ASTIdentifier).ident]
+			write(w, "li $v0, %d", structVar.structure.structSize)
+		default:
+			write(w, "li $v0, %d", m.sizeOfType(varTyp, false))
+		}
 		m.SetLastType(VarTypeInteger)
-
 	case ASTExprPrefixUnaryTypePositive:
 	default:
 		panic("unsupported ASTExprPrefixUnaryType")
