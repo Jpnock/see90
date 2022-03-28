@@ -7,6 +7,7 @@ import (
 )
 
 var AST ASTTranslationUnit
+var typmap map[string]*ASTTypeDef = map[string]*ASTTypeDef{}
 
 func init() {
 	yyDebug = 1
@@ -241,16 +242,46 @@ declaration
 		}
 	}
 	| declaration_specifiers init_declarator_list ';' {
-		for _, entry := range $2.n.(ASTDeclaratorList) {
-			entry.typ = $1.typ
+		if $1.typ != nil {
+			vartype := $1.typ
+			addPointerDepth := 0
+			if $1.typ.typ == VarTypeTypeName {
+				vartype = typmap[$1.typ.typName].typ
+				addPointerDepth = typmap[$1.typ.typName].decl.pointerDepth
+			}
+			for _, entry := range $2.n.(ASTDeclaratorList) {
+				entry.typ = vartype
+				entry.decl.pointerDepth += addPointerDepth
+			}
+			$$.n = $2.n
+		} else {
+			for _, entry := range $2.n.(ASTDeclaratorList) {
+				typeDef := $1.n.(*ASTTypeDef)
+				typeDef.typeName = entry.decl.identifier.ident
+				typeDef.decl = entry.decl
+	            if typeDef.typ.typName != "" {
+					typeDef.decl.pointerDepth += typmap[typeDef.typ.typName].decl.pointerDepth
+				}
+				typmap[entry.decl.identifier.ident] = typeDef			
+			}
+			$$.n = $1.n
 		}
-		$$.n = $2.n
+		
 	}
 	;
 
 declaration_specifiers
 	: storage_class_specifier
-	| storage_class_specifier declaration_specifiers
+	| storage_class_specifier declaration_specifiers {
+		if $2.typ.typ == VarTypeTypeName {
+			typName := $2.typ.typName
+			typ := &ASTTypeDef{typ: typmap[$2.typ.typName].typ}
+			typ.typ.typName = typName
+			$$.n = typ
+		} else{
+		$$.n = &ASTTypeDef{typ: $2.typ}
+		}
+	}
 	| type_specifier {
 		$$.typ = $1.typ
 	}
@@ -508,15 +539,23 @@ parameter_list
 
 parameter_declaration
 	: declaration_specifiers declarator {
+		vartype := $1.typ
+		if $1.typ.typ == VarTypeTypeName {
+			vartype = typmap[$1.typ.typName].typ
+		}
 		$$.n = &ASTParameterDeclaration{
-			specifier: $1.typ,
+			specifier: vartype,
 			declarator: $2.n,
 		}
 	}
 	| declaration_specifiers abstract_declarator
 	| declaration_specifiers {
+		vartype := $1.typ
+		if $1.typ.typ == VarTypeTypeName {
+			vartype = typmap[$1.typ.typName].typ
+		}
 		$$.n = &ASTParameterDeclaration{
-			specifier: $1.typ,
+			specifier: vartype,
 		}
 	}
 	;

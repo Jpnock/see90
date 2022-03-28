@@ -62,8 +62,10 @@ func (t *ASTWhileLoop) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Create a new variable scope
 	m.NewVariableScope()
 	m.NewStructScope()
+	m.NewTypeDefScope()
 	defer m.VariableScopes.Pop()
 	defer m.StructScopes.Pop()
+	defer m.TypeDefScopes.Pop()
 
 	// Create a new label scope
 	m.NewLabelScope(LabelScope{
@@ -72,6 +74,7 @@ func (t *ASTWhileLoop) GenerateMIPS(w io.Writer, m *MIPS) {
 	})
 	defer m.LabelScopes.Pop()
 	defer m.StructScopes.Pop()
+	defer m.TypeDefScopes.Pop()
 
 	// Condition
 	write(w, "%s:", conditionLabel)
@@ -118,8 +121,10 @@ func (t *ASTDoWhileLoop) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Create a new variable scope
 	m.NewVariableScope()
 	m.NewStructScope()
+	m.NewTypeDefScope()
 	defer m.VariableScopes.Pop()
 	defer m.StructScopes.Pop()
+	defer m.TypeDefScopes.Pop()
 
 	// Create a new label scope
 	m.NewLabelScope(LabelScope{
@@ -193,8 +198,10 @@ func (t *ASTForLoop) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Create a new variable scope
 	m.NewVariableScope()
 	m.NewStructScope()
+	m.NewTypeDefScope()
 	defer m.VariableScopes.Pop()
 	defer m.StructScopes.Pop()
+	defer m.TypeDefScopes.Pop()
 
 	// Create a new label scope
 	m.NewLabelScope(LabelScope{
@@ -274,8 +281,10 @@ func (t *ASTIfStatement) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	m.NewVariableScope()
 	m.NewStructScope()
+	m.NewTypeDefScope()
 	defer m.VariableScopes.Pop()
 	defer m.StructScopes.Pop()
+	defer m.TypeDefScopes.Pop()
 
 	// Condition
 	t.condition.GenerateMIPS(w, m)

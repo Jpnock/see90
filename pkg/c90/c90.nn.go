@@ -8270,7 +8270,7 @@ OUTER0:
 			{
 				setParsedString(yylex, &lval.str)
 				lval.str = yylex.Text()
-				return checkIdentOrType()
+				return checkIdentOrType(yylex.Text())
 			}
 		case 33:
 			{
@@ -8588,8 +8588,11 @@ func setParsedString(yylex *Lexer, lvalStr *string) {
 	return
 }
 
-func checkIdentOrType() int {
+func checkIdentOrType(text string) int {
 	// TODO: check if a typedef already exists in the current scope. If
 	// it does, return TYPE_NAME instead.
+	if _, ok := typmap[text]; ok {
+		return TYPE_NAME
+	}
 	return IDENTIFIER
 }
