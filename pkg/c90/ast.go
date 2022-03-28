@@ -212,7 +212,10 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 		write(w, "addiu $v1, $fp, %d", -variable.fpOffset)
 	}
 
-	m.LastType = variable.typ.typ
+	m.SetLastType(variable.typ.typ)
+	if variable.directDecl != nil {
+		m.pointerLevel = variable.directDecl.pointerDepth
+	}
 
 	if variable.IsArray() {
 		if variable.isGlobal {
@@ -225,7 +228,7 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 		return
 	}
 
-	switch m.LastType {
+	switch m.LastType() {
 	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
 		if variable.isGlobal {
 			write(w, "lw $v0, 0($v1)")
@@ -305,11 +308,11 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Load value into $v0/$f0
 	t.value.GenerateMIPS(w, m)
 
-	if t.tmpAssign || m.LastType == VarTypeString {
+	if t.tmpAssign || m.LastType() == VarTypeString {
 		return
 	}
 
-	rhsType := m.LastType
+	rhsType := m.LastType()
 
 	// TODO: switch on type
 	switch rhsType {
@@ -329,11 +332,11 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	if t.operator == ASTAssignmentOperatorEquals {
 		// Special case as this does not require a load
-		storeToReturnRegister(w, m.LastType)
+		storeToReturnRegister(w, m.LastType())
 		return
 	}
 
-	switch m.LastType {
+	switch m.LastType() {
 	case VarTypeFloat:
 		write(w, "lwc1 $f2, 0($v1)")
 	case VarTypeDouble:
@@ -405,7 +408,7 @@ func (t *ASTAssignment) GenerateMIPS(w io.Writer, m *MIPS) {
 		panic("unhanlded ASTAssignmentOperator")
 	}
 
-	storeToReturnRegister(w, m.LastType)
+	storeToReturnRegister(w, m.LastType())
 }
 
 type ASTArgumentExpressionList []*ASTAssignment
@@ -540,8 +543,12 @@ func (t *ASTDecl) generateLocalVarMIPS(w io.Writer, m *MIPS, ident *ASTIdentifie
 		element.GenerateMIPS(w, m)
 
 		switchType := t.typ.typ
-		if m.LastType == VarTypeString {
+		if m.LastType() == VarTypeString || (switchType == VarTypeChar && t.isPointer()) {
 			switchType = VarTypeString
+		}
+
+		if len(elements) == 1 && t.isArray() && switchType == VarTypeChar {
+			switchType = VarTypeUnsigned
 		}
 
 		switch switchType {
@@ -675,21 +682,25 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	isGlobal := len(m.VariableScopes) == 1
 	declVar := &Variable{
-		decl:     t,
-		typ:      *t.typ,
-		label:    nil,
-		isGlobal: isGlobal,
+		decl:       t,
+		directDecl: t.decl,
+		typ:        *t.typ,
+		label:      nil,
+		isGlobal:   isGlobal,
 	}
 
-	m.LastType = t.typ.typ
+	m.SetLastType(t.typ.typ)
 	m.VariableScopes[len(m.VariableScopes)-1][ident.ident] = declVar
 
 	if isGlobal {
 		t.generateGlobalVarMIPS(w, m, ident, declVar)
+		m.pointerLevel = t.decl.pointerDepth
 		return
 	}
 
+	m.pointerLevel = t.decl.pointerDepth
 	t.generateLocalVarMIPS(w, m, ident, declVar)
+	m.pointerLevel = t.decl.pointerDepth
 }
 
 type ASTConstant struct {
@@ -755,7 +766,7 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 		} else {
 			write(w, "li $v0, %d", unquotedString[0])
 		}
-		m.LastType = VarTypeChar
+		m.SetLastType(VarTypeChar)
 		return
 	}
 
@@ -775,7 +786,7 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 		} else {
 			write(w, "li.s $f0, %f", float32(f32))
 		}
-		m.LastType = VarTypeFloat
+		m.SetLastType(VarTypeFloat)
 		return
 	}
 
@@ -801,17 +812,17 @@ func (t *ASTConstant) GenerateMIPS(w io.Writer, m *MIPS) {
 		// can be performed on this type; it will also be overwritten by
 		// ASTDecl/ASTIdentifier etc.)
 		if isGlobal {
-			if m.LastType != VarTypeDouble {
+			if m.LastType() != VarTypeDouble {
 				emittedGlobalInt = true
 				emitGlobalInt32(w, int32(intValue))
 			}
 		} else {
 			write(w, "li $v0, %d", intValue)
 		}
-		m.LastType = VarTypeInteger
+		m.SetLastType(VarTypeInteger)
 	} else {
 		// Not an int
-		m.LastType = VarTypeDouble
+		m.SetLastType(VarTypeDouble)
 	}
 
 	f64, err := strconv.ParseFloat(t.value, 64)
@@ -859,7 +870,8 @@ func (t *ASTStringLiteral) GenerateMIPS(w io.Writer, m *MIPS) {
 		write(w, "addiu $v0, $v0, %%lo(%s)", stringlabel)
 	}
 
-	m.LastType = VarTypeString
+	m.SetLastType(VarTypeChar)
+	m.pointerLevel = 1
 }
 
 type ASTPanic struct{}
@@ -894,11 +906,11 @@ func (t *ASTType) Describe(indent int) string {
 func (t *ASTType) GenerateMIPS(w io.Writer, m *MIPS) {
 	switch t.typ {
 	case VarTypeEnum:
-		m.LastType = VarTypeUnsigned
+		m.SetLastType(VarTypeUnsigned)
 		// TODO: we might have some problems with struct parameters?
 		t.enum.GenerateMIPS(w, m)
 	default:
-		m.LastType = t.typ
+		m.SetLastType(t.typ)
 	}
 }
 

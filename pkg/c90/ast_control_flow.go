@@ -11,7 +11,7 @@ func checkFloatOrDoubleCondition(w io.Writer, m *MIPS) {
 	falseLabel := m.CreateUniqueLabel("f0_eq0")
 	finalLabel := m.CreateUniqueLabel("logical_final")
 
-	switch m.LastType {
+	switch m.LastType() {
 	case VarTypeFloat:
 		write(w, "li.s $f10, 0")
 		write(w, "c.eq.s $f10, $f0")

@@ -1,38 +1,41 @@
 package c90
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Label string
 
 type Variable struct {
 	// fpOffset is the amount of subtract from fp to access the variable.
-	fpOffset int
-	decl     *ASTDecl
-	typ      ASTType
-	label    *Label
-	isGlobal bool
-	enum     *ASTEnumEntry
+	fpOffset          int
+	decl              *ASTDecl
+	directDecl        *ASTDirectDeclarator
+	typ               ASTType
+	label             *Label
+	isGlobal          bool
+	enum              *ASTEnumEntry
 }
 
 func (v *Variable) IsPointer() bool {
-	if v.decl == nil || v.decl.decl == nil {
+	if v.directDecl == nil {
 		return false
 	}
-	return v.decl.decl.pointerDepth > 0
+	return v.directDecl.pointerDepth > 0
 }
 
 func (v *Variable) IsArray() bool {
-	if v.decl == nil || v.decl.decl == nil {
+	if v.directDecl == nil {
 		return false
 	}
-	return v.decl.decl.array != nil
+	return v.directDecl.array != nil
 }
 
 func (v *Variable) GlobalLabel() Label {
 	if !v.isGlobal {
 		panic("variable not global")
 	}
-	return Label("__global_var__" + v.decl.decl.Identifier().ident)
+	return Label("__global_var__" + v.directDecl.Identifier().ident)
 }
 
 type MIPSContext struct {
@@ -64,7 +67,8 @@ type MIPS struct {
 	stringMap       map[Label][]byte
 	lastLabel       Label
 
-	LastType VarType
+	lastType     VarType
+	pointerLevel int
 
 	uniqueLabelNumber uint
 }
@@ -78,9 +82,33 @@ func NewMIPS() *MIPS {
 		Context:           &MIPSContext{},
 		LabelScopes:       nil,
 		stringMap:         make(map[Label][]byte),
-		LastType:          VarTypeInvalid,
+		lastType:          VarTypeInvalid,
 		uniqueLabelNumber: 0,
 	}
+}
+
+func (m *MIPS) LastType() VarType {
+	if m.pointerLevel != 0 {
+		return VarTypeUnsigned
+	}
+	if m.pointerLevel == 1 && m.lastType == VarTypeChar {
+		return VarTypeString
+	}
+	return m.lastType
+}
+
+func (m *MIPS) SetLastType(typ VarType) {
+	//	log.Printf("setting type to %v\n", typ)
+	//debug.PrintStack()
+
+	if typ == VarTypeString {
+		m.lastType = VarTypeChar
+		m.pointerLevel = 1
+		return
+	}
+
+	m.lastType = typ
+	m.pointerLevel = 0
 }
 
 // CreateUniqueLabel takes the provided name and returns a unique label, using
