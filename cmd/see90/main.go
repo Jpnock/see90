@@ -1,8 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 
 	"github.com/jpnock/see90/pkg/c90"
@@ -68,8 +70,21 @@ func (r *CommentRemoverReader) Read(p []byte) (n int, err error) {
 }
 
 func main() {
-	c90.Parse(c90.NewLexer(&CommentRemoverReader{r: os.Stdin}))
+	inputPath := flag.String("S", "test/all/main.c", "The input file path")
+	outputPath := flag.String("o", "test/all/main.s", "The output file path")
+	flag.Parse()
+
+	inputFile, err := os.Open(*inputPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	outputFile, err := os.Create(*outputPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c90.Parse(c90.NewLexer(&CommentRemoverReader{r: inputFile}))
 
 	fmt.Fprint(os.Stderr, c90.AST.Describe(0))
-	c90.AST.GenerateMIPS(os.Stdout, c90.NewMIPS())
+	c90.AST.GenerateMIPS(outputFile, c90.NewMIPS())
 }
