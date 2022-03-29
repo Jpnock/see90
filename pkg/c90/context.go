@@ -61,17 +61,17 @@ func (m *MIPSContext) GetNewLocalOffsetWithMinSize(reserve int) int {
 }
 
 type MIPS struct {
-	VariableScopes  VariableScopeStack
-	Context         *MIPSContext
-	LabelScopes     LabelScopeStack
-	CaseLabelScopes CaseLabelScopeStack
-	ReturnScopes    ReturnScopeStack
-	StructScopes    StructScopeStack
-	TypeDefScopes   TypeDefScopeStack
-	LastStruct      string
-	TopStruct       string
-	stringMap       map[Label][]byte
-	lastLabel       Label
+	VariableScopes    VariableScopeStack
+	Context           *MIPSContext
+	LabelScopes       LabelScopeStack
+	CaseLabelScopes   CaseLabelScopeStack
+	ReturnScopes      ReturnScopeStack
+	StructScopes      StructScopeStack
+	TypeDefScopes     TypeDefScopeStack
+	StructElementName string
+	TopStruct         string
+	stringMap         map[Label][]byte
+	lastLabel         Label
 
 	lastType     VarType
 	pointerLevel int

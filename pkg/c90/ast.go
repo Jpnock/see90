@@ -580,6 +580,10 @@ func (t *ASTDecl) generateLocalVarMIPSStruct(w io.Writer, m *MIPS, ident *ASTIde
 func (t *ASTDecl) generateLocalVarMIPS(w io.Writer, m *MIPS, ident *ASTIdentifier, declVar *Variable) {
 	isArray := t.decl.array != nil
 
+	if t.typ.typ == VarTypeStruct {
+		declVar.structure = m.StructScopes[len(m.StructScopes)-1][t.typ.typName]
+	}
+
 	if isArray {
 		_, _, reserveArrayBytes := t.getArrayInfo(m)
 		declVar.fpOffset = m.Context.GetNewLocalOffsetWithMinSize(reserveArrayBytes)
@@ -1322,16 +1326,6 @@ func (t *ASTStruct) GenerateMIPS(w io.Writer, m *MIPS) {
 	containsDouble := false
 
 	entries := getFlatStructEntries(m, t.elements, 0, "")
-	for _, entry := range entries {
-
-		fmt.Printf("Got entry %v\n", entry.decl.typ)
-	}
-
-	for _, structElement := range entries {
-		if structElement.decl.typ.typ == VarTypeStruct {
-
-		}
-	}
 
 	for i, structElement := range entries {
 		name := structElement.decl.decl.identifier.ident
@@ -1343,10 +1337,6 @@ func (t *ASTStruct) GenerateMIPS(w io.Writer, m *MIPS) {
 		structEntry.offsets[i] = totalOffsetSize
 		structEntry.types[i] = *element.typ
 		structEntry.elementIdents[name] = i
-
-		// if element.decl.typ.typ == VarTypeStruct {
-
-		// }
 		totalOffsetSize += 8
 
 		if previousType == VarTypeChar && element.typ.typ != VarTypeChar {
@@ -1473,12 +1463,12 @@ func (t ASTStructElement) GenerateMIPS(w io.Writer, m *MIPS) {
 	var topName string
 	if _, ok := t.structImp.(*ASTStructElement); ok {
 		t.structImp.GenerateMIPS(w, m)
-		m.LastStruct = m.LastStruct + "." + t.ident
-		elementName = m.LastStruct
+		m.StructElementName = m.StructElementName + "." + t.ident
+		elementName = m.StructElementName
 		topName = m.TopStruct
 	} else {
 		m.TopStruct = t.structImp.(*ASTIdentifier).ident
-		m.LastStruct = t.ident
+		m.StructElementName = t.ident
 		topName = t.structImp.(*ASTIdentifier).ident
 	}
 
