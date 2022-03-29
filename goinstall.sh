@@ -109,7 +109,7 @@ fi
 
 if [ -d "$GOROOT" ]; then
     echo "The Go install directory ($GOROOT) already exists. Exiting."
-    exit 1
+    exit 0
 fi
 
 PACKAGE_NAME="go$VERSION.$PLATFORM.tar.gz"
@@ -132,24 +132,24 @@ mkdir -p "$GOROOT"
 
 tar -C "$GOROOT" --strip-components=1 -xzf "$TEMP_DIRECTORY/go.tar.gz"
 
-echo "Configuring shell profile in: $shell_profile"
-touch "$shell_profile"
-if [ "$shell" == "fish" ]; then
-    {
-        echo '# GoLang'
-        echo "set GOROOT '${GOROOT}'"
-        echo "set GOPATH '$GOPATH'"
-        echo 'set PATH $GOPATH/bin $GOROOT/bin $PATH'
-    } >> "$shell_profile"
-else
-    {
-        echo '# GoLang'
-        echo "export GOROOT=${GOROOT}"
-        echo 'export PATH=$GOROOT/bin:$PATH'
-        echo "export GOPATH=$GOPATH"
-        echo 'export PATH=$GOPATH/bin:$PATH'
-    } >> "$shell_profile"
-fi
+# echo "Configuring shell profile in: $shell_profile"
+# touch "$shell_profile"
+# if [ "$shell" == "fish" ]; then
+#     {
+#         echo '# GoLang'
+#         echo "set GOROOT '${GOROOT}'"
+#         echo "set GOPATH '$GOPATH'"
+#         echo 'set PATH $GOPATH/bin $GOROOT/bin $PATH'
+#     } >> "$shell_profile"
+# else
+#     {
+#         echo '# GoLang'
+#         echo "export GORO GOPATH="$(HOME)/go"OT=${GOROOT}"
+#         echo 'export PATH=$GOROOT/bin:$PATH'
+#         echo "export GOPATH=$GOPATH"
+#         echo 'export PATH=$GOPATH/bin:$PATH'
+#     } >> "$shell_profile"
+# fi
 
 mkdir -p "${GOPATH}/"{src,pkg,bin}
 echo -e "\nGo $VERSION was installed into $GOROOT.\nMake sure to relogin into your shell or run:"
