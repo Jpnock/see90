@@ -780,6 +780,11 @@ func (t *ASTIndexedExpression) GenerateMIPS(w io.Writer, m *MIPS) {
 	case VarTypeString, VarTypeChar:
 		write(w, "lb $v0, 0($v0)")
 		m.SetLastType(VarTypeChar)
+	case VarTypeDouble:
+		write(w, "lwc1 $f0, 4($v0)")
+		write(w, "lwc1 $f1, 0($v0)")
+	case VarTypeFloat:
+		write(w, "lwc1 $f0, 0($sp)")
 	default:
 		write(w, "lw $v0, 0($v0)")
 	}

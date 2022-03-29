@@ -217,6 +217,9 @@ func (t *ASTIdentifier) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.SetLastType(variable.typ.typ)
 	if variable.directDecl != nil {
 		m.pointerLevel = variable.directDecl.pointerDepth
+		if variable.IsArray() {
+			m.pointerLevel += 1
+		}
 	}
 
 	if variable.IsArray() {
@@ -638,8 +641,8 @@ func (t *ASTDecl) generateLocalVarMIPS(w io.Writer, m *MIPS, ident *ASTIdentifie
 		case VarTypeFloat:
 			write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+(i*4))
 		case VarTypeDouble:
-			write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+4+(i*4))
-			write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset+(i*4))
+			write(w, "swc1 $f0, %d($fp)", -declVar.fpOffset+4+(i*8))
+			write(w, "swc1 $f1, %d($fp)", -declVar.fpOffset+(i*8))
 		case VarTypeString:
 			if isArray {
 				strBytes := m.stringMap[m.lastLabel]
@@ -766,8 +769,8 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	vartype := t.typ
 	if t.typ.typ == VarTypeTypeName {
 		vartype = m.TypeDefScopes[len(m.TypeDefScopes)-1][t.typ.typName]
-		panic(ident.ident)
 	}
+
 	declVar := &Variable{
 		decl:       t,
 		directDecl: t.decl,
@@ -779,15 +782,19 @@ func (t *ASTDecl) GenerateMIPS(w io.Writer, m *MIPS) {
 	m.SetLastType(t.typ.typ)
 	m.VariableScopes[len(m.VariableScopes)-1][ident.ident] = declVar
 
+	extraPointerDepth := 0
+	if t.isArray() {
+		extraPointerDepth = 1
+	}
 	if isGlobal {
 		t.generateGlobalVarMIPS(w, m, ident, declVar)
-		m.pointerLevel = t.decl.pointerDepth
+		m.pointerLevel = t.decl.pointerDepth + extraPointerDepth
 		return
 	}
 
-	m.pointerLevel = t.decl.pointerDepth
+	m.pointerLevel = t.decl.pointerDepth + extraPointerDepth
 	t.generateLocalVarMIPS(w, m, ident, declVar)
-	m.pointerLevel = t.decl.pointerDepth
+	m.pointerLevel = t.decl.pointerDepth + extraPointerDepth
 }
 
 type ASTConstant struct {
@@ -1072,7 +1079,7 @@ type ASTDirectDeclarator struct {
 }
 
 func (t ASTDirectDeclarator) ArrayDimensions() []int {
-	if t.array == nil {
+	if t.array == nil || t.decl == nil {
 		return nil
 	}
 

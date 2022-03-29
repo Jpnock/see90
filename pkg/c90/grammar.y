@@ -245,24 +245,57 @@ declaration
 		if $1.typ != nil {
 			vartype := $1.typ
 			addPointerDepth := 0
+			var typeDefDecl *ASTDirectDeclarator
 			if $1.typ.typ == VarTypeTypeName {
-				vartype = typmap[$1.typ.typName].typ
-				addPointerDepth = typmap[$1.typ.typName].decl.pointerDepth
+				mapEntry := typmap[$1.typ.typName]
+				vartype = mapEntry.typ
+				addPointerDepth = mapEntry.decl.pointerDepth
+				typeDefDecl = mapEntry.decl
 			}
 			for _, entry := range $2.n.(ASTDeclaratorList) {
 				entry.typ = vartype
+
+				if typeDefDecl != nil {
+					if entry.decl.array != nil {
+						decl := &entry.decl
+						for *decl != nil {
+							decl = &(*decl).decl
+						}
+						*decl = typeDefDecl
+					} else {
+						entry.decl.array = typeDefDecl.array
+						decl := &entry.decl
+						for *decl != nil {
+							decl = &(*decl).decl
+						}
+						*decl = typeDefDecl
+
+					}
+				}
+
 				entry.decl.pointerDepth += addPointerDepth
 			}
 			$$.n = $2.n
 		} else {
+			// Parse typedef line
 			for _, entry := range $2.n.(ASTDeclaratorList) {
 				typeDef := $1.n.(*ASTTypeDef)
-				typeDef.typeName = entry.decl.identifier.ident
+				ident := entry.decl.Identifier()
+
+				typeDef.typeName = ident.ident
 				typeDef.decl = entry.decl
+
 	            if typeDef.typ.typName != "" {
 					typeDef.decl.pointerDepth += typmap[typeDef.typ.typName].decl.pointerDepth
+					decl := &typeDef.decl
+					for *decl != nil {
+						decl = &(*decl).decl
+					}
+					*decl = typmap[typeDef.typ.typName].decl
 				}
-				typmap[entry.decl.identifier.ident] = typeDef			
+
+				
+				typmap[ident.ident] = typeDef			
 			}
 			$$.n = $1.n
 		}
