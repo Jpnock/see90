@@ -533,8 +533,12 @@ func (t *ASTDecl) generateLocalVarMIPSStruct(w io.Writer, m *MIPS, ident *ASTIde
 
 			element.GenerateMIPS(w, m)
 
-			// TODO: handle pointer/array types
-			switch structType.types[i].typ {
+			typ := structType.types[i].typ
+			if structType.FlatStructEntries[numOfInitilizers+i].decl.isPointer() {
+				typ = VarTypeUnsigned
+			}
+
+			switch typ {
 			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
 				write(w, "sw $v0, %d($fp)", -declVar.fpOffset+structType.offsets[i])
 			case VarTypeChar:
@@ -555,8 +559,12 @@ func (t *ASTDecl) generateLocalVarMIPSStruct(w io.Writer, m *MIPS, ident *ASTIde
 	numOfElements := len(structType.elementIdents)
 	if numOfElements > numOfInitilizers {
 		for i := 0; i < (numOfElements - numOfInitilizers); i++ {
-			// TODO: handle pointer/array types
-			switch structType.types[numOfInitilizers+i].typ {
+			typ := structType.types[numOfInitilizers+i].typ
+			if structType.FlatStructEntries[numOfInitilizers+i].decl.isPointer() {
+				typ = VarTypeUnsigned
+			}
+
+			switch typ {
 			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
 				write(w, "addiu $v0, $v0, 0")
 				write(w, "sw $v0, %d($fp)", -declVar.fpOffset+structType.offsets[numOfInitilizers+i])
@@ -1326,6 +1334,8 @@ func (t *ASTStruct) GenerateMIPS(w io.Writer, m *MIPS) {
 	containsDouble := false
 
 	entries := getFlatStructEntries(m, t.elements, 0, "")
+
+	structEntry.FlatStructEntries = entries
 
 	for i, structElement := range entries {
 		name := structElement.decl.decl.identifier.ident
