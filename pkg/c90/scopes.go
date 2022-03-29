@@ -112,6 +112,7 @@ func (s *ReturnScopeStack) Peek() *Label {
 }
 
 type Struct struct {
+	astStruct       *ASTStruct
 	ident           string
 	structSize      int
 	totalOffsetSize int

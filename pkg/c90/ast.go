@@ -554,7 +554,7 @@ func (t *ASTDecl) generateLocalVarMIPSStruct(w io.Writer, m *MIPS, ident *ASTIde
 
 	numOfElements := len(structType.elementIdents)
 	if numOfElements > numOfInitilizers {
-		for i := 0; i < (numOfInitilizers - numOfElements); i++ {
+		for i := 0; i < (numOfElements - numOfInitilizers); i++ {
 			// TODO: handle pointer/array types
 			switch structType.types[numOfInitilizers+i].typ {
 			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
@@ -583,7 +583,7 @@ func (t *ASTDecl) generateLocalVarMIPS(w io.Writer, m *MIPS, ident *ASTIdentifie
 	if isArray {
 		_, _, reserveArrayBytes := t.getArrayInfo(m)
 		declVar.fpOffset = m.Context.GetNewLocalOffsetWithMinSize(reserveArrayBytes)
-	} else if t.typ.typ == VarTypeStruct {
+	} else if t.typ.typ == VarTypeStruct && !t.isPointer() {
 		declVar.fpOffset = m.Context.GetNewLocalOffsetWithMinSize(
 			m.StructScopes[len(m.StructScopes)-1][declVar.typ.structure.ident.ident].totalOffsetSize,
 		)
@@ -1271,7 +1271,7 @@ type ASTStruct struct {
 	init bool
 }
 
-func (t ASTStruct) Describe(indent int) string {
+func (t *ASTStruct) Describe(indent int) string {
 	var sb strings.Builder
 	sindent := genIndent(indent)
 	sb.WriteString(fmt.Sprintf("%sstruct %s {\n", sindent, t.ident.ident))
@@ -1280,14 +1280,39 @@ func (t ASTStruct) Describe(indent int) string {
 	return sb.String()
 }
 
-func (t ASTStruct) GenerateMIPS(w io.Writer, m *MIPS) {
+type StructEntry struct {
+	prefix string
+	level  int
+	decl   *ASTDecl
+}
+
+func getFlatStructEntries(m *MIPS, entries ASTStructDeclarationList, level int, prefix string) []*StructEntry {
+	flatEntries := []*StructEntry{}
+	for _, outer := range entries {
+		for _, entry := range outer {
+			if entry.decl.typ.typ == VarTypeStruct {
+				levelPrefix := entry.decl.decl.identifier.ident
+				if prefix != "" {
+					levelPrefix = prefix + "." + levelPrefix
+				}
+				innerTypes := getFlatStructEntries(m, m.StructScopes[len(m.StructScopes)-1][entry.decl.typ.structure.ident.ident].astStruct.elements, level+1, levelPrefix)
+				flatEntries = append(flatEntries, innerTypes...)
+			} else {
+				flatEntries = append(flatEntries, &StructEntry{level: level, decl: entry.decl, prefix: prefix})
+			}
+		}
+	}
+	return flatEntries
+}
+
+func (t *ASTStruct) GenerateMIPS(w io.Writer, m *MIPS) {
 	if t.init {
 		return
 	}
 
 	t.init = true
 
-	structEntry := Struct{ident: t.ident.ident, offsets: make(map[int]int), types: make(map[int]ASTType), elementIdents: make(map[string]int)}
+	structEntry := Struct{astStruct: t, ident: t.ident.ident, offsets: make(map[int]int), types: make(map[int]ASTType), elementIdents: make(map[string]int)}
 
 	previousType := VarTypeInvalid
 
@@ -1296,35 +1321,57 @@ func (t ASTStruct) GenerateMIPS(w io.Writer, m *MIPS) {
 
 	containsDouble := false
 
-	for i, elementSlice := range t.elements {
-		for j, element := range elementSlice {
-			structEntry.offsets[i+j] = totalOffsetSize
-			structEntry.types[i+j] = *element.decl.typ
-			structEntry.elementIdents[element.decl.decl.identifier.ident] = i + j
-			totalOffsetSize += 8
+	entries := getFlatStructEntries(m, t.elements, 0, "")
+	for _, entry := range entries {
 
-			if previousType == VarTypeChar && element.decl.typ.typ != VarTypeChar {
-				// Add padding
-				padding := structSize % 4
-				if padding != 0 {
-					structSize += 4 - (padding)
-				}
-			}
+		fmt.Printf("Got entry %v\n", entry.decl.typ)
+	}
 
-			switch element.decl.typ.typ {
-			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeFloat:
-				structSize += 4
-				previousType = VarTypeInteger
-			case VarTypeChar:
-				structSize += 1
-				previousType = VarTypeChar
-			case VarTypeDouble:
-				containsDouble = true
-				structSize += 8
-				previousType = VarTypeDouble
-			default:
-				panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+	for _, structElement := range entries {
+		if structElement.decl.typ.typ == VarTypeStruct {
+
+		}
+	}
+
+	for i, structElement := range entries {
+		name := structElement.decl.decl.identifier.ident
+		if structElement.prefix != "" {
+			name = structElement.prefix + "." + name
+		}
+
+		element := structElement.decl
+		structEntry.offsets[i] = totalOffsetSize
+		structEntry.types[i] = *element.typ
+		structEntry.elementIdents[name] = i
+
+		// if element.decl.typ.typ == VarTypeStruct {
+
+		// }
+		totalOffsetSize += 8
+
+		if previousType == VarTypeChar && element.typ.typ != VarTypeChar {
+			// Add padding
+			padding := structSize % 4
+			if padding != 0 {
+				structSize += 4 - (padding)
 			}
+		}
+
+		switch element.typ.typ {
+		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeFloat:
+			structSize += 4
+			previousType = VarTypeInteger
+		case VarTypeChar:
+			structSize += 1
+			previousType = VarTypeChar
+		case VarTypeDouble:
+			containsDouble = true
+			structSize += 8
+			previousType = VarTypeDouble
+		case VarTypeStruct:
+			structSize += m.StructScopes[len(m.StructScopes)-1][element.typ.structure.ident.ident].structSize
+		default:
+			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 		}
 	}
 
@@ -1408,45 +1455,71 @@ func (t ASTStructInitilizerList) Describe(indent int) string {
 func (t ASTStructInitilizerList) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 type ASTStructElement struct {
-	structImp *ASTIdentifier
+	structImp Node
 	ident     string
+
+	pointer bool
 }
 
 func (t ASTStructElement) Describe(indent int) string {
-	return fmt.Sprintf("%s.%s", t.structImp.ident, t.ident)
+	if t.pointer {
+		return fmt.Sprintf("%s->%s", t.structImp.Describe(0), t.ident)
+	}
+	return fmt.Sprintf("%s.%s", t.structImp.Describe(0), t.ident)
 }
 
 func (t ASTStructElement) GenerateMIPS(w io.Writer, m *MIPS) {
-	structVar := *m.VariableScopes[len(m.VariableScopes)-1][t.structImp.ident]
-	elementIndent := structVar.structure.elementIdents[t.ident]
-	elementOffset := structVar.structure.offsets[elementIndent]
-
-	var globalLabel Label
-	if structVar.isGlobal {
-		globalLabel = structVar.GlobalLabel()
-
-		// Load the address of the global into $v1
-		write(w, "lui $v1, %%hi(%s)", globalLabel)
-		write(w, "addiu $v1, $v1, %%lo(%s)", globalLabel)
+	elementName := t.ident
+	var topName string
+	if _, ok := t.structImp.(*ASTStructElement); ok {
+		t.structImp.GenerateMIPS(w, m)
+		m.LastStruct = m.LastStruct + "." + t.ident
+		elementName = m.LastStruct
+		topName = m.TopStruct
 	} else {
-		// Put the address of the local into $v1
-		write(w, "addiu $v1, $fp, %d", -structVar.fpOffset+elementOffset)
+		m.TopStruct = t.structImp.(*ASTIdentifier).ident
+		m.LastStruct = t.ident
+		topName = t.structImp.(*ASTIdentifier).ident
 	}
 
+	structVar := *m.VariableScopes[len(m.VariableScopes)-1][topName]
+	elementIndent := structVar.structure.elementIdents[elementName]
+	elementOffset := structVar.structure.offsets[elementIndent]
+
+	if t.pointer {
+		write(w, "addiu $v1, $fp, %d", -structVar.fpOffset)
+		write(w, "lw $v1, 0($v1)")
+		write(w, "addiu $v1, $v1, %d", elementOffset)
+		m.pointerLevel -= 1
+	} else {
+
+		var globalLabel Label
+		if structVar.isGlobal {
+			globalLabel = structVar.GlobalLabel()
+
+			// Load the address of the global into $v1
+			write(w, "lui $v1, %%hi(%s)", globalLabel)
+			write(w, "addiu $v1, $v1, %%lo(%s)", globalLabel)
+		} else {
+			// Put the address of the local into $v1
+			write(w, "addiu $v1, $fp, %d", -structVar.fpOffset+elementOffset)
+		}
+	}
 	switch structVar.structure.types[elementIndent].typ {
 	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
-		write(w, "lw $v0, %d($fp)", -structVar.fpOffset+elementOffset)
+		write(w, "lw $v0, 0($v1)")
 	case VarTypeChar:
-		write(w, "lb $v0, %d($fp)", -structVar.fpOffset+elementOffset)
+		write(w, "lb $v0, 0($v1)")
 	case VarTypeFloat:
-		write(w, "lwc1 $f0, %d($fp)", -structVar.fpOffset+elementOffset)
+		write(w, "lwc1 $f0, 0($v1)")
 	case VarTypeDouble:
-		write(w, "lwc1 $f0, %d($fp)", -structVar.fpOffset+elementOffset+4)
-		write(w, "lwc1 $f1, %d($fp)", -structVar.fpOffset+elementOffset)
+		write(w, "lwc1 $f0, 4($v1)")
+		write(w, "lwc1 $f1, 0($v1)")
 	default:
 		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 	}
 	m.SetLastType(structVar.structure.types[elementIndent].typ)
+
 }
 
 type ASTTypeDef struct {

@@ -68,6 +68,8 @@ type MIPS struct {
 	ReturnScopes    ReturnScopeStack
 	StructScopes    StructScopeStack
 	TypeDefScopes   TypeDefScopeStack
+	LastStruct      string
+	TopStruct       string
 	stringMap       map[Label][]byte
 	lastLabel       Label
 
