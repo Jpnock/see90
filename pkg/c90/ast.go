@@ -554,7 +554,7 @@ func (t *ASTDecl) generateLocalVarMIPSStruct(w io.Writer, m *MIPS, ident *ASTIde
 
 	numOfElements := len(structType.elementIdents)
 	if numOfElements > numOfInitilizers {
-		for i := 0; i < (numOfInitilizers - numOfElements); i++ {
+		for i := 0; i < (numOfElements - numOfInitilizers); i++ {
 			// TODO: handle pointer/array types
 			switch structType.types[numOfInitilizers+i].typ {
 			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
@@ -1468,48 +1468,57 @@ func (t ASTStructElement) Describe(indent int) string {
 }
 
 func (t ASTStructElement) GenerateMIPS(w io.Writer, m *MIPS) {
+	elementName := t.ident
+	var topName string
 	if _, ok := t.structImp.(*ASTStructElement); ok {
 		t.structImp.GenerateMIPS(w, m)
+		m.LastStruct = m.LastStruct + "." + t.ident
+		elementName = m.LastStruct
+		topName = m.TopStruct
+	} else {
+		m.TopStruct = t.structImp.(*ASTIdentifier).ident
+		m.LastStruct = t.ident
+		topName = t.structImp.(*ASTIdentifier).ident
+	}
+
+	structVar := *m.VariableScopes[len(m.VariableScopes)-1][topName]
+	elementIndent := structVar.structure.elementIdents[elementName]
+	elementOffset := structVar.structure.offsets[elementIndent]
+
+	if t.pointer {
+		write(w, "addiu $v1, $fp, %d", -structVar.fpOffset)
+		write(w, "lw $v1, 0($v1)")
+		write(w, "addiu $v1, $v1, %d", elementOffset)
+		m.pointerLevel -= 1
 	} else {
 
-		structVar := *m.VariableScopes[len(m.VariableScopes)-1][t.structImp.(*ASTIdentifier).ident]
-		elementIndent := structVar.structure.elementIdents[t.ident]
-		elementOffset := structVar.structure.offsets[elementIndent]
+		var globalLabel Label
+		if structVar.isGlobal {
+			globalLabel = structVar.GlobalLabel()
 
-		if t.pointer {
-			write(w, "addiu $v1, $fp, %d", -structVar.fpOffset)
-			write(w, "lw $v1, 0($v1)")
-			write(w, "addiu $v1, $v1, %d", elementOffset)
-			m.pointerLevel -= 1
+			// Load the address of the global into $v1
+			write(w, "lui $v1, %%hi(%s)", globalLabel)
+			write(w, "addiu $v1, $v1, %%lo(%s)", globalLabel)
 		} else {
-
-			var globalLabel Label
-			if structVar.isGlobal {
-				globalLabel = structVar.GlobalLabel()
-
-				// Load the address of the global into $v1
-				write(w, "lui $v1, %%hi(%s)", globalLabel)
-				write(w, "addiu $v1, $v1, %%lo(%s)", globalLabel)
-			} else {
-				// Put the address of the local into $v1
-				write(w, "addiu $v1, $fp, %d", -structVar.fpOffset+elementOffset)
-			}
+			// Put the address of the local into $v1
+			write(w, "addiu $v1, $fp, %d", -structVar.fpOffset+elementOffset)
 		}
-		switch structVar.structure.types[elementIndent].typ {
-		case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
-			write(w, "lw $v0, 0($v1)")
-		case VarTypeChar:
-			write(w, "lb $v0, 0($v1)")
-		case VarTypeFloat:
-			write(w, "lwc1 $f0, 0($v1)")
-		case VarTypeDouble:
-			write(w, "lwc1 $f0, 4($v1)")
-			write(w, "lwc1 $f1, 0($v1)")
-		default:
-			panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
-		}
-		m.SetLastType(structVar.structure.types[elementIndent].typ)
 	}
+	switch structVar.structure.types[elementIndent].typ {
+	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
+		write(w, "lw $v0, 0($v1)")
+	case VarTypeChar:
+		write(w, "lb $v0, 0($v1)")
+	case VarTypeFloat:
+		write(w, "lwc1 $f0, 0($v1)")
+	case VarTypeDouble:
+		write(w, "lwc1 $f0, 4($v1)")
+		write(w, "lwc1 $f1, 0($v1)")
+	default:
+		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
+	}
+	m.SetLastType(structVar.structure.types[elementIndent].typ)
+
 }
 
 type ASTTypeDef struct {
