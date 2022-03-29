@@ -580,12 +580,10 @@ func (t *ASTDecl) generateLocalVarMIPSStruct(w io.Writer, m *MIPS, ident *ASTIde
 func (t *ASTDecl) generateLocalVarMIPS(w io.Writer, m *MIPS, ident *ASTIdentifier, declVar *Variable) {
 	isArray := t.decl.array != nil
 
-	_, ok := t.initVal.(ASTInitializerList)
-
 	if isArray {
 		_, _, reserveArrayBytes := t.getArrayInfo(m)
 		declVar.fpOffset = m.Context.GetNewLocalOffsetWithMinSize(reserveArrayBytes)
-	} else if t.typ.typ == VarTypeStruct && ok {
+	} else if t.typ.typ == VarTypeStruct && !t.isPointer() {
 		t.generateLocalVarMIPSStruct(w, m, ident, declVar)
 		return
 	} else {
