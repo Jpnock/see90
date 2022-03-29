@@ -75,6 +75,7 @@ type MIPS struct {
 
 	lastType     VarType
 	pointerLevel int
+	indexLevel   int
 
 	uniqueLabelNumber uint
 }

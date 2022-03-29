@@ -753,13 +753,44 @@ func (t *ASTIndexedExpression) Describe(indent int) string {
 func (t *ASTIndexedExpression) GenerateMIPS(w io.Writer, m *MIPS) {
 	// Put index into $v0
 	t.index.GenerateMIPS(w, m)
-	stackPush(w, "$v0", 4)
+	if m.indexLevel == 0 {
+		write(w, "move $t7, $v0")
+	} else {
+		write(w, "move $t6, $v0")
+	}
+
+	m.indexLevel += 1
 
 	// Put lvalue into $v0
 	t.lvalue.GenerateMIPS(w, m)
 
-	// Index now in $t0
-	stackPop(w, "$t0", 4)
+	// TODO: could be a prefix
+	id, ok := t.lvalue.(*ASTIdentifier)
+	if !ok {
+		// We're still indexing the array
+		return
+	}
+
+	variable := m.VariableScopes[len(m.VariableScopes)-1][id.ident]
+	var dims []int
+	if variable.decl != nil {
+		dims, _, _ = variable.decl.getArrayInfo(m)
+	}
+	//fmt.Printf("Got %v %d %v\n", id.ident, m.indexLevel, dims)
+
+	if m.indexLevel == 2 {
+		// inner most in $t6
+		// outer most in $t7
+		write(w, "li $t0, %d", dims[1])
+		write(w, "mult $t0, $t6")
+		write(w, "mflo $t0")
+		write(w, "addu $t0, $t0, $t7")
+	} else {
+		// Index now in $t0
+		write(w, "move $t0, $t7")
+	}
+
+	m.indexLevel = 0
 
 	if m.pointerLevel > 0 {
 		// Handle pointer indexing

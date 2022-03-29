@@ -502,6 +502,10 @@ func (t *ASTDecl) isArray() bool {
 }
 
 func (t *ASTDecl) getArrayInfo(m *MIPS) (dimensions []int, totalElements int, sizeOf int) {
+	if t.decl == nil {
+		return nil, 0, 0
+	}
+
 	// Work out how many bytes to reserve
 	dims := t.decl.ArrayDimensions()
 
