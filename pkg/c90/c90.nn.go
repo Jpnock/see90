@@ -8589,7 +8589,7 @@ func setParsedString(yylex *Lexer, lvalStr *string) {
 }
 
 func checkIdentOrType(text string) int {
-	// TODO: check if a typedef already exists in the current scope. If
+	// Check if a typedef already exists in the current scope. If
 	// it does, return TYPE_NAME instead.
 	if _, ok := typmap[text]; ok {
 		return TYPE_NAME
