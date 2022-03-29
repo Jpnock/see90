@@ -102,6 +102,9 @@ func (t *ASTFunction) GenerateMIPS(w io.Writer, m *MIPS) {
 				directDecl: directDecl,
 				typ:        paramType,
 			}
+			if paramType.typ == VarTypeStruct {
+				v.structure = m.StructScopes[len(m.StructScopes)-1][paramType.typName]
+			}
 			m.VariableScopes[len(m.VariableScopes)-1][directDecl.identifier.ident] = v
 			arguments = append(arguments, v)
 		}
