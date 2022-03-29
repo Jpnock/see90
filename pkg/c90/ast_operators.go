@@ -636,8 +636,13 @@ func (t *ASTExprPrefixUnary) GenerateMIPS(w io.Writer, m *MIPS) {
 	case ASTExprPrefixUnaryTypeSizeOf:
 		switch varTyp {
 		case VarTypeStruct:
-			structVar := m.VariableScopes[len(m.VariableScopes)-1][t.lvalue.(*ASTBrackets).Node.(ASTExpression)[0].value.(*ASTIdentifier).ident]
-			write(w, "li $v0, %d", structVar.structure.structSize)
+			if typ, ok := t.lvalue.(*ASTType); ok {
+				structTyp := m.StructScopes[len(m.StructScopes)-1][typ.structure.ident.ident]
+				write(w, "li $v0, %d", structTyp.structSize)
+			} else {
+				structVar := m.VariableScopes[len(m.VariableScopes)-1][t.lvalue.(*ASTBrackets).Node.(ASTExpression)[0].value.(*ASTIdentifier).ident]
+				write(w, "li $v0, %d", structVar.structure.structSize)
+			}
 		default:
 			write(w, "li $v0, %d", m.sizeOfType(varTyp, false))
 		}

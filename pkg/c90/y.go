@@ -1533,7 +1533,7 @@ yydefault:
 		yyDollar = yyS[yypt-2 : yypt+1]
 //line pkg/c90/grammar.y:384
 		{
-			yyVAL.n = &ASTStruct{ident: &ASTIdentifier{ident: yyDollar[2].str}}
+			yyVAL.n = &ASTStruct{ident: &ASTIdentifier{ident: yyDollar[2].str}, init: true}
 		}
 	case 109:
 		yyDollar = yyS[yypt-1 : yypt+1]

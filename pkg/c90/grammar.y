@@ -382,7 +382,7 @@ struct_or_union_specifier
 	}
 	| struct_or_union '{' struct_declaration_list '}'
 	| struct_or_union IDENTIFIER {
-		$$.n = &ASTStruct{ident: &ASTIdentifier{ident: $2.str}}
+		$$.n = &ASTStruct{ident: &ASTIdentifier{ident: $2.str}, init: true}
 	}
 	;
 

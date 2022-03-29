@@ -1013,6 +1013,7 @@ func (t *ASTType) GenerateMIPS(w io.Writer, m *MIPS) {
 		// TODO: we might have some problems with struct parameters?
 		t.enum.GenerateMIPS(w, m)
 	case VarTypeStruct:
+		m.SetLastType(VarTypeStruct)
 		// TODO: not sure what to set last type to
 		// TODO: we might have some problems with struct parameters?
 		t.structure.GenerateMIPS(w, m)
@@ -1263,6 +1264,8 @@ func (t ASTEnumEntry) GenerateMIPS(w io.Writer, m *MIPS) {}
 type ASTStruct struct {
 	ident    *ASTIdentifier
 	elements ASTStructDeclarationList
+
+	init bool
 }
 
 func (t ASTStruct) Describe(indent int) string {
@@ -1275,27 +1278,62 @@ func (t ASTStruct) Describe(indent int) string {
 }
 
 func (t ASTStruct) GenerateMIPS(w io.Writer, m *MIPS) {
+	if t.init {
+		return
+	}
+
+	t.init = true
+
 	structEntry := Struct{ident: t.ident.ident, offsets: make(map[int]int), types: make(map[int]ASTType), elementIdents: make(map[string]int)}
+
+	previousType := VarTypeInvalid
 
 	var structSize = 0
 	var totalOffsetSize = 0
+
+	containsDouble := false
+
 	for i, elementSlice := range t.elements {
 		for j, element := range elementSlice {
 			structEntry.offsets[i+j] = totalOffsetSize
 			structEntry.types[i+j] = *element.decl.typ
 			structEntry.elementIdents[element.decl.decl.identifier.ident] = i + j
 			totalOffsetSize += 8
+
+			if previousType == VarTypeChar && element.decl.typ.typ != VarTypeChar {
+				// Add padding
+				padding := structSize % 4
+				if padding != 0 {
+					structSize += 4 - (padding)
+				}
+			}
+
 			switch element.decl.typ.typ {
 			case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned, VarTypeFloat:
 				structSize += 4
+				previousType = VarTypeInteger
 			case VarTypeChar:
 				structSize += 1
+				previousType = VarTypeChar
 			case VarTypeDouble:
+				containsDouble = true
 				structSize += 8
+				previousType = VarTypeDouble
 			default:
 				panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 			}
+		}
+	}
 
+	if containsDouble {
+		padding := structSize % 8
+		if padding != 0 {
+			structSize += 8 - (padding)
+		}
+	} else {
+		padding := structSize % 4
+		if padding != 0 {
+			structSize += 4 - (padding)
 		}
 	}
 
