@@ -580,10 +580,12 @@ func (t *ASTDecl) generateLocalVarMIPSStruct(w io.Writer, m *MIPS, ident *ASTIde
 func (t *ASTDecl) generateLocalVarMIPS(w io.Writer, m *MIPS, ident *ASTIdentifier, declVar *Variable) {
 	isArray := t.decl.array != nil
 
+	_, ok := t.initVal.(ASTInitializerList)
+
 	if isArray {
 		_, _, reserveArrayBytes := t.getArrayInfo(m)
 		declVar.fpOffset = m.Context.GetNewLocalOffsetWithMinSize(reserveArrayBytes)
-	} else if t.typ.typ == VarTypeStruct {
+	} else if t.typ.typ == VarTypeStruct && ok {
 		t.generateLocalVarMIPSStruct(w, m, ident, declVar)
 		return
 	} else {
@@ -1319,6 +1321,8 @@ func (t ASTStruct) GenerateMIPS(w io.Writer, m *MIPS) {
 				containsDouble = true
 				structSize += 8
 				previousType = VarTypeDouble
+			case VarTypeStruct:
+				structSize += m.StructScopes[len(m.StructScopes)-1][element.decl.typ.structure.ident.ident].structSize
 			default:
 				panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 			}
@@ -1405,41 +1409,57 @@ func (t ASTStructInitilizerList) Describe(indent int) string {
 func (t ASTStructInitilizerList) GenerateMIPS(w io.Writer, m *MIPS) {}
 
 type ASTStructElement struct {
-	structImp *ASTIdentifier
+	structImp Node
 	ident     string
+
+	pointer bool
 }
 
 func (t ASTStructElement) Describe(indent int) string {
-	return fmt.Sprintf("%s.%s", t.structImp.ident, t.ident)
+	if t.pointer {
+		return fmt.Sprintf("%s->%s", t.structImp.Describe(0), t.ident)
+	}
+	return fmt.Sprintf("%s.%s", t.structImp.Describe(0), t.ident)
 }
 
 func (t ASTStructElement) GenerateMIPS(w io.Writer, m *MIPS) {
+	if _, ok := t.structImp.(*ASTStructElement); ok {
+		t.structImp.GenerateMIPS(w, m)
+	}
+
 	structVar := *m.VariableScopes[len(m.VariableScopes)-1][t.structImp.ident]
 	elementIndent := structVar.structure.elementIdents[t.ident]
 	elementOffset := structVar.structure.offsets[elementIndent]
 
-	var globalLabel Label
-	if structVar.isGlobal {
-		globalLabel = structVar.GlobalLabel()
-
-		// Load the address of the global into $v1
-		write(w, "lui $v1, %%hi(%s)", globalLabel)
-		write(w, "addiu $v1, $v1, %%lo(%s)", globalLabel)
+	if t.pointer {
+		write(w, "addiu $v1, $fp, %d", -structVar.fpOffset)
+		write(w, "lw $v1, 0($v1)")
+		write(w, "addiu $v1, $v1, %d", elementOffset)
+		m.pointerLevel -= 1
 	} else {
-		// Put the address of the local into $v1
-		write(w, "addiu $v1, $fp, %d", -structVar.fpOffset+elementOffset)
-	}
 
+		var globalLabel Label
+		if structVar.isGlobal {
+			globalLabel = structVar.GlobalLabel()
+
+			// Load the address of the global into $v1
+			write(w, "lui $v1, %%hi(%s)", globalLabel)
+			write(w, "addiu $v1, $v1, %%lo(%s)", globalLabel)
+		} else {
+			// Put the address of the local into $v1
+			write(w, "addiu $v1, $fp, %d", -structVar.fpOffset+elementOffset)
+		}
+	}
 	switch structVar.structure.types[elementIndent].typ {
 	case VarTypeInteger, VarTypeSigned, VarTypeShort, VarTypeLong, VarTypeUnsigned:
-		write(w, "lw $v0, %d($fp)", -structVar.fpOffset+elementOffset)
+		write(w, "lw $v0, 0($v1)")
 	case VarTypeChar:
-		write(w, "lb $v0, %d($fp)", -structVar.fpOffset+elementOffset)
+		write(w, "lb $v0, 0($v1)")
 	case VarTypeFloat:
-		write(w, "lwc1 $f0, %d($fp)", -structVar.fpOffset+elementOffset)
+		write(w, "lwc1 $f0, 0($v1)")
 	case VarTypeDouble:
-		write(w, "lwc1 $f0, %d($fp)", -structVar.fpOffset+elementOffset+4)
-		write(w, "lwc1 $f1, %d($fp)", -structVar.fpOffset+elementOffset)
+		write(w, "lwc1 $f0, 4($v1)")
+		write(w, "lwc1 $f1, 0($v1)")
 	default:
 		panic("not yet implemented code gen on binary expressions for these types: VarTypeTypeName, VarTypeVoid")
 	}
