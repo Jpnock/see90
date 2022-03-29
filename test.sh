@@ -3,7 +3,7 @@
 set -euo pipefail
 
 make
-cat ./test/all/main.c | ./bin/see90 > ./test/all/main.s
+./bin/c_compiler -S "./test/all/main.c" -o "./test/all/main.s"
 
 mips-linux-gnu-gcc -mfp32 -o ./test/all/main.o -c ./test/all/main.s
 mips-linux-gnu-gcc -mfp32 -static -o ./test/all/main ./test/all/main.o ./test/all/root.c
