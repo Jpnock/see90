@@ -24,6 +24,7 @@ bin/c_compiler : install_go install_go_modules
 	@echo "Building parser files"
 	@GOPATH="$(HOME)/go" GOROOT="$(HOME)/.go" goyacc -o pkg/c90/y.go -v pkg/c90/y.output pkg/c90/grammar.y
 	@echo "Building compiler"
+	@mkdir -p bin
 	@GOPATH="$(HOME)/go" GOROOT="$(HOME)/.go" go build -o bin/see90 ./cmd/see90/*.go
 	@cp bin/see90 bin/c_compiler
 	@echo "Build complete"
