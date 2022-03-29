@@ -11,15 +11,19 @@ build-example:
 
 install_go_modules:
 	@echo "Installing goyacc and nex via Golang install"
-	GOPATH="$(HOME)/go" GOROOT="$(HOME)/.go" go install golang.org/x/tools/cmd/goyacc@v0.1.9
-	GOPATH="$(HOME)/go" GOROOT="$(HOME)/.go" go install github.com/blynn/nex@master
+	@GOPATH="$(HOME)/go" GOROOT="$(HOME)/.go" go install golang.org/x/tools/cmd/goyacc@v0.1.9
+	@GOPATH="$(HOME)/go" GOROOT="$(HOME)/.go" go install github.com/blynn/nex@master
 
 install_go:
-	@echo "Installing Golang 1.17"
+	@echo "Installing Golang 1.17 to $(HOME)/go and $(HOME)/.go"
 	@./goinstall.sh
 
 bin/c_compiler : install_go install_go_modules
+	@echo "Building lexer files"
 	@GOPATH="$(HOME)/go" GOROOT="$(HOME)/.go" nex -o pkg/c90/c90.nn.go pkg/c90/c90.nex
+	@echo "Building parser files"
 	@GOPATH="$(HOME)/go" GOROOT="$(HOME)/.go" goyacc -o pkg/c90/y.go -v pkg/c90/y.output pkg/c90/grammar.y
+	@echo "Building compiler"
 	@GOPATH="$(HOME)/go" GOROOT="$(HOME)/.go" go build -o bin/see90 ./cmd/see90/*.go
 	@cp bin/see90 bin/c_compiler
+	@echo "Build complete"
